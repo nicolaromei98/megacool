@@ -1,0 +1,78 @@
+---
+description: DOM attribute conventions (data-module, data-* options, kebab-case). Use when adding or reading attributes for modules or component config.
+globs:
+alwaysApply: false
+---
+# DOM Attribute Conventions
+
+## Module Attributes
+
+- **Primary**: `data-module="moduleName"` - Links element to module
+# DOM Attribute Conventions
+
+## Module Attributes
+
+- **Primary**: `data-module="moduleName"` - Links element to module
+- **Secondary**: `data-*` attributes for module configuration
+- **Naming**: Use kebab-case for attribute names
+
+## Common Patterns
+
+```html
+<!-- Basic module -->
+<div data-module="cycle"></div>
+
+<!-- With configuration -->
+<div data-module="nav" data-speed="0.5" data-delay="100"></div>
+
+<!-- With animation options -->
+<div data-module="fade" data-duration="0.8" data-ease="power2.out"></div>
+
+<!-- With responsive options -->
+<div data-module="parallax" data-mobile="false" data-desktop="true"></div>
+```
+
+## Dataset Access
+
+Access custom attributes in modules:
+
+```typescript
+export default function (element: HTMLElement, dataset: DOMStringMap) {
+  // Parse numeric values
+  const speed = parseFloat(dataset.speed || "1");
+  const delay = parseInt(dataset.delay || "0");
+  const duration = parseFloat(dataset.duration || "0.5");
+  
+  // String values
+  const animation = dataset.animation || "default";
+  const ease = dataset.ease || "power2.out";
+  
+  // Boolean values
+  const mobile = dataset.mobile === "true";
+  const desktop = dataset.desktop !== "false";
+}
+```
+
+## Validation
+
+- Always check for required attributes
+- Provide sensible defaults
+- Use type conversion for numeric values
+- Validate attribute values when needed
+- Handle missing or invalid attributes gracefully
+
+## Error Handling
+
+```typescript
+export default function (element: HTMLElement, dataset: DOMStringMap) {
+  try {
+    const speed = parseFloat(dataset.speed || "1");
+    if (isNaN(speed) || speed < 0) {
+      console.warn("Invalid speed value, using default");
+      speed = 1;
+    }
+  } catch (error) {
+    console.error("Error parsing dataset:", error);
+  }
+}
+```

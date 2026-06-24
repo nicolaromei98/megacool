@@ -1,0 +1,97 @@
+---
+description: TypeScript patterns for modules (signature, imports, types). Use when writing or refactoring module code in src/modules/ or lib.
+globs:
+alwaysApply: false
+---
+# TypeScript Patterns for Module System
+
+## Module Function Signature
+
+Always use this exact signature for module functions:
+# TypeScript Patterns for Module System
+
+## Module Function Signature
+
+Always use this exact signature for module functions:
+
+```typescript
+export default function (element: HTMLElement, dataset: DOMStringMap) {
+  // Module implementation
+}
+```
+
+## Import Patterns
+
+- Always import lifecycle hooks from `@/modules/_`
+- Use `@lib/` for utility libraries and subscription services
+- Use `@utils/` for utility functions
+- Use `@/` for relative imports from src
+
+## Type Safety
+
+- Use proper TypeScript types for all parameters
+- Define interfaces for complex configurations
+- Use `DOMStringMap` for dataset access
+- Use `HTMLElement` for element typing
+- Use proper return types for functions
+
+## Common Patterns
+
+```typescript
+// GSAP animations
+import gsap from "@lib/gsap";
+
+// Subscription services
+import { Raf, Resize } from "@lib/subs";
+
+// State management
+import State from "@lib/hey";
+
+// Utility functions
+import { clientRect } from "@utils/client-rect";
+import { clamp, map } from "@utils/math";
+
+// Lifecycle hooks
+import { onMount, onDestroy, onPageIn, onPageOut, onView, onTrack } from "@/modules/_";
+```
+
+## Configuration Interfaces
+
+```typescript
+interface ModuleConfig {
+  speed?: number;
+  delay?: number;
+  duration?: number;
+  ease?: string;
+  mobile?: boolean;
+  desktop?: boolean;
+}
+
+export default function (element: HTMLElement, dataset: DOMStringMap) {
+  const config: ModuleConfig = {
+    speed: parseFloat(dataset.speed || "1"),
+    delay: parseInt(dataset.delay || "0"),
+    duration: parseFloat(dataset.duration || "0.5"),
+    ease: dataset.ease || "power2.out",
+    mobile: dataset.mobile === "true",
+    desktop: dataset.desktop !== "false",
+  };
+}
+```
+
+## Error Handling
+
+- Wrap module initialization in try-catch
+- Use console.warn for non-critical errors
+- Use console.error for critical errors
+- Return null for failed module loads
+- Validate all inputs and configurations
+
+## Best Practices
+
+- Use strict TypeScript configuration
+- Define proper interfaces for complex data
+- Use type guards for runtime validation
+- Handle all possible error cases
+- Use proper async/await patterns
+- Document complex type relationships

@@ -1,0 +1,59 @@
+---
+description: File and folder structure (src/modules/, lib, utils). Use when adding files, organizing imports, or navigating the codebase.
+globs:
+alwaysApply: false
+---
+# File Organization Rules
+
+## Module Files
+
+- **Location**: `src/modules/` directory
+# File Organization Rules
+
+## Module Structure
+
+- **Location**: `src/modules/` directory
+- **Naming**: Use descriptive, kebab-case names
+- **Extension**: `.ts` for TypeScript modules
+- **Structure**: One module per file
+
+## Import Organization
+
+```typescript
+// 1. External libraries
+import gsap from "gsap";
+
+// 2. Internal modules (lifecycle hooks)
+import { onMount, onDestroy, onPageIn, onPageOut, onView, onTrack } from "@/modules/_";
+
+// 3. Subscription services
+import { Raf, Resize } from "@lib/subs";
+
+// 4. Internal libraries
+import { Scroll } from "@lib/scroll";
+import State from "@lib/hey";
+
+// 5. Utilities
+import { clientRect } from "@utils/client-rect";
+import { clamp, map } from "@utils/math";
+
+// 6. Module implementation
+export default function (element: HTMLElement, dataset: DOMStringMap) {
+  // Implementation
+}
+```
+
+## File Naming Conventions
+
+- Use descriptive names that match functionality
+- Avoid generic names like `module.ts` or `component.ts`
+- Use kebab-case for multi-word names
+- Examples: `cycle.ts`, `nav.ts`, `scroll-animation.ts`
+
+## Module Categories
+
+- **Animation**: `cycle.ts`, `fade.ts`, `slide.ts`
+- **Navigation**: `nav.ts`, `menu.ts`, `tabs.ts`
+- **Interaction**: `hover.ts`, `click.ts`, `scroll.ts`
+- **Layout**: `grid.ts`, `masonry.ts`, `sticky.ts`
+- **Effects**: `parallax.ts`, `reveal.ts`, `morph.ts`
