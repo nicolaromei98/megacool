@@ -24,7 +24,7 @@ class _App {
   // pages = Pages;
 
   constructor() {
-    console.log("Ciao ciao", performance.now().toFixed(2));
+    console.log("App local", performance.now().toFixed(2));
 
     createCycles();
     runPageIn();
