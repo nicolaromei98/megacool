@@ -1,8 +1,8 @@
 html {
-  --fluid-width: 1440;
+  --fluid-width: 1728;
 
-  --value: 12;
-  --design-width: 1440;
+  --value: 16;
+  --design-width: 1728;
   --design-height: 1080;
   --vw-ratio: 1;
   --vh-ratio: 0;
