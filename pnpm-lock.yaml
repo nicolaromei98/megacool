@@ -17,21 +17,33 @@ importers:
       lenis:
         specifier: ^1.3.4
         version: 1.3.4
+      three:
+        specifier: ^0.185.0
+        version: 0.185.0
+      three-custom-shader-material:
+        specifier: ^6.4.0
+        version: 6.4.0(three@0.185.0)
       typescript:
         specifier: ^5.7.3
         version: 5.8.3
     devDependencies:
+      '@types/three':
+        specifier: ^0.185.0
+        version: 0.185.0
       bun:
         specifier: ^1.1.45
         version: 1.2.5
       bun-types:
         specifier: latest
-        version: 1.2.5
+        version: 1.3.14
       mkcert:
         specifier: ^3.2.0
         version: 3.2.0
 
 packages:
+
+  '@dimforge/rapier3d-compat@0.12.0':
+    resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
 
   '@oven/bun-darwin-aarch64@1.2.5':
     resolution: {integrity: sha512-ggZfdpgUJ/OiWrfcfTgHeSTHcec5HAjkGrZHL9FJ/R60sydRKPYHgAgexdIoJAGfsCVAL+x7y8NSTRIAX8J4Ng==}
@@ -88,11 +100,20 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@tweenjs/tween.js@23.1.3':
+    resolution: {integrity: sha512-vJmvvwFxYuGnF2axRtPYocag6Clbb5YS7kLL+SO/TeVFzHqDIWrNKYtcsPMibjDx9O+bu+psAy9NKfWklassUA==}
+
   '@types/node@22.13.10':
     resolution: {integrity: sha512-I6LPUvlRH+O6VRUqYOcMudhaIdUVWfsjnZavnsraHvpBwaEyMN29ry+0UVJhImYL16xsscu0aske3yA+uPOWfw==}
 
-  '@types/ws@8.5.14':
-    resolution: {integrity: sha512-bd/YFLW+URhBzMXurx7lWByOu+xzU9+kb3RboOteXYDfW+tr+JZa99OyNmPINEGB/ahzKrEuc8rcv4gnpJmxTw==}
+  '@types/stats.js@0.17.4':
+    resolution: {integrity: sha512-jIBvWWShCvlBqBNIZt0KAshWpvSjhkwkEu4ZUcASoAvhmrgAUI2t1dXrjSL4xXVLB4FznPrIsX3nKXFl/Dt4vA==}
+
+  '@types/three@0.185.0':
+    resolution: {integrity: sha512-O2Uy8Cj4Nonr8dWUUbifMdPe8B0Mq7EdOHb89S4+kjUw/KhbjTZrUuYlrQ1bpUKG+EP9QJnN7qNxbHGlGoLHMA==}
+
+  '@types/webxr@0.5.24':
+    resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
 
   '@unseenco/e@2.5.0':
     resolution: {integrity: sha512-9eJ6Anii+eoreu1TKxZRImCqoQ2djFrtNToZj++MTLW1j/NbmVCQUeO/x/86VxV7HINsZ8GuFkNfRJKb03HR/Q==}
@@ -100,8 +121,8 @@ packages:
   '@unseenco/taxi@1.9.0':
     resolution: {integrity: sha512-Nkawr7WoLqyjDBRXHPbf3GoGK1N83jD2potQTWG6OQuGiUlmHyfG/NaIADH4JH92grYdRgnIpDiUjhNj2ct28A==}
 
-  bun-types@1.2.5:
-    resolution: {integrity: sha512-3oO6LVGGRRKI4kHINx5PIdIgnLRb7l/SprhzqXapmoYkFl5m4j6EvALvbDVuuBFaamB46Ap6HCUxIXNLCGy+tg==}
+  bun-types@1.3.14:
+    resolution: {integrity: sha512-4N0ig0fEomHt5R0KCFWjovxow98rIoRwKolrYdCcknNwMekCXRnWEUvgu5soYV8QXtVsrUD8B95MBOZGPvr6KQ==}
 
   bun@1.2.5:
     resolution: {integrity: sha512-fbQLt+DPiGUrPKdmsHRRT7cQAlfjdxPVFvLZrsUPmKiTdv+pU50ypdx9yRJluknSbyaZchFVV7Lx2KXikXKX2Q==}
@@ -112,6 +133,9 @@ packages:
   commander@11.1.0:
     resolution: {integrity: sha512-yPVavfyCcRhmorC7rWlkHn15b4wDVgVmBA7kV4QVBsF7kv/9TKJAbAXVTxvTnwP8HHKjRCJDClKbciiYS7p0DQ==}
     engines: {node: '>=16'}
+
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
   gsap@3.13.0:
     resolution: {integrity: sha512-QL7MJ2WMjm1PHWsoFrAQH/J8wUeqZvMtHO58qdekHpCfhvhSL4gSiz6vJf5EeMP0LOn3ZCprL2ki/gjED8ghVw==}
@@ -130,6 +154,9 @@ packages:
       vue:
         optional: true
 
+  meshoptimizer@1.1.1:
+    resolution: {integrity: sha512-oRFNWJRDA/WTrVj7NWvqa5HqE1t9MYDj2VaWirQCzCCrAd2GHrqR/sQezCxiWATPNlKTcRaPRHPJwIRoPBAp5g==}
+
   mkcert@3.2.0:
     resolution: {integrity: sha512-026Eivq9RoOjOuLJGzbhGwXUAjBxRX11Z7Jbm4/7lqT/Av+XNy9SPrJte6+UpEt7i+W3e/HZYxQqlQcqXZWSzg==}
     engines: {node: '>=16'}
@@ -142,6 +169,21 @@ packages:
   selector-set@1.1.5:
     resolution: {integrity: sha512-6SQw6yMew5iOZ8/cDHDEnJWRM4ot2mxP6szZyF5ptrBogw4AcS4EXRj/8BUfgAMwVfdL84qpModlBMOl2NVrsQ==}
 
+  three-custom-shader-material@6.4.0:
+    resolution: {integrity: sha512-dIbkwX1P4DcHMOZrywW+/TDp5qJhlyU6NP/2kmHw91UqC+TrK4JSBtAV3qGc6UnkqSOmR1i0O+Yz5EnTp2aQ1g==}
+    peerDependencies:
+      '@react-three/fiber': '>=8.0'
+      react: '>=18.0'
+      three: '>=0.159'
+    peerDependenciesMeta:
+      '@react-three/fiber':
+        optional: true
+      react:
+        optional: true
+
+  three@0.185.0:
+    resolution: {integrity: sha512-+yRrcRO2iZa8uzvNNl0d7cL4huhgKgBvVJ0njcTe8xFqZ6DMAFZdCKDP91SEAuj25bNAj7k1QQdf+srZywVK6w==}
+
   typescript@5.8.3:
     resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
     engines: {node: '>=14.17'}
@@ -151,6 +193,8 @@ packages:
     resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
 
 snapshots:
+
+  '@dimforge/rapier3d-compat@0.12.0': {}
 
   '@oven/bun-darwin-aarch64@1.2.5':
     optional: true
@@ -185,13 +229,24 @@ snapshots:
   '@oven/bun-windows-x64@1.2.5':
     optional: true
 
+  '@tweenjs/tween.js@23.1.3': {}
+
   '@types/node@22.13.10':
     dependencies:
       undici-types: 6.20.0
 
-  '@types/ws@8.5.14':
+  '@types/stats.js@0.17.4': {}
+
+  '@types/three@0.185.0':
     dependencies:
-      '@types/node': 22.13.10
+      '@dimforge/rapier3d-compat': 0.12.0
+      '@tweenjs/tween.js': 23.1.3
+      '@types/stats.js': 0.17.4
+      '@types/webxr': 0.5.24
+      fflate: 0.8.3
+      meshoptimizer: 1.1.1
+
+  '@types/webxr@0.5.24': {}
 
   '@unseenco/e@2.5.0':
     dependencies:
@@ -201,10 +256,9 @@ snapshots:
     dependencies:
       '@unseenco/e': 2.5.0
 
-  bun-types@1.2.5:
+  bun-types@1.3.14:
     dependencies:
       '@types/node': 22.13.10
-      '@types/ws': 8.5.14
 
   bun@1.2.5:
     optionalDependencies:
@@ -222,9 +276,13 @@ snapshots:
 
   commander@11.1.0: {}
 
+  fflate@0.8.3: {}
+
   gsap@3.13.0: {}
 
   lenis@1.3.4: {}
+
+  meshoptimizer@1.1.1: {}
 
   mkcert@3.2.0:
     dependencies:
@@ -234,6 +292,12 @@ snapshots:
   node-forge@1.3.1: {}
 
   selector-set@1.1.5: {}
+
+  three-custom-shader-material@6.4.0(three@0.185.0):
+    dependencies:
+      three: 0.185.0
+
+  three@0.185.0: {}
 
   typescript@5.8.3: {}
 
