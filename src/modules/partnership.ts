@@ -6,15 +6,14 @@ import { handleEditor } from "@webflow/detect-editor";
 
 const DESKTOP_MQ = "(min-width: 992px) and (min-height: 701px)";
 
-/** data-module="partnership" on .partner-track. data-debug to force all accordions open. */
-export default function (element: HTMLElement, dataset: DOMStringMap) {
+/** data-module="partnership" on .partner-track. Designer: data-debug + editor.css (or embed CSS below) */
+export default function (element: HTMLElement, _dataset: DOMStringMap) {
   const items = Array.from(
     element.querySelectorAll<HTMLElement>(".accordion")
   );
 
   if (!items.length) return;
 
-  const debug = dataset.debug != null && dataset.debug !== "false";
   const desktopMq = window.matchMedia(DESKTOP_MQ);
   const count = items.length;
 
@@ -46,12 +45,12 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
 
   const applyMode = () => {
     activeIndex = -1;
-    if (debug || !desktopMq.matches) setAllOpen(true);
+    if (!desktopMq.matches) setAllOpen(true);
     else updateDesktop();
   };
 
   const onScroll = () => {
-    if (debug || !desktopMq.matches) return;
+    if (!desktopMq.matches) return;
     updateDesktop();
   };
 
@@ -73,17 +72,20 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     unsubResize?.();
     unsubScroll = null;
     unsubResize = null;
-    setAllOpen(false);
   };
+
+  const debug = element.hasAttribute("data-debug");
 
   handleEditor((editor) => {
     isEditor = editor;
-    if (editor) stop();
+    stop();
+    if (editor) setAllOpen(debug);
     else start();
   });
 
   onMount(() => {
     if (!isEditor) start();
+    else if (debug) setAllOpen(true);
   });
 
   onDestroy(() => stop());
