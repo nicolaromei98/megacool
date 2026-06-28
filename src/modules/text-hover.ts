@@ -1,19 +1,15 @@
 import { SplitText, reduced } from "@lib/gsap";
 import { onMount, onDestroy } from "@/modules/_";
+import { toNumber } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
 
 const CHAR_CLASS = "th-char";
 
-const num = (value: string | undefined, fallback: number) => {
-  const parsed = Number.parseFloat(value ?? "");
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
 /** data-module="text-hover" on any text element. Optional: data-shift, data-stagger, data-duration */
 export default function (element: HTMLElement, dataset: DOMStringMap) {
-  const shift = num(dataset.shift, 1.3);
-  const stagger = num(dataset.stagger, 0.01);
-  const duration = num(dataset.duration, 0.3);
+  const shift = toNumber(dataset.shift, 1.3);
+  const stagger = toNumber(dataset.stagger, 0.01);
+  const duration = toNumber(dataset.duration, 0.3);
 
   element.style.setProperty("--text-hover-shift", `${shift}em`);
   element.style.setProperty("--text-hover-duration", `${duration}s`);

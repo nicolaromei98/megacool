@@ -1,26 +1,44 @@
 import gsap, { SplitText, reduced } from "@lib/gsap";
 import { onMount, onDestroy, onView } from "@/modules/_";
+import { toNumber } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
 import type { Observe } from "@/modules/_/observe";
 
 const LINE_CLASS = "tr-line";
 const LINE_WRAP_CLASS = "tr-line-wrap";
 const ANIMATED_CLASS = "tr-animated";
+const DEFAULT_TARGET =
+  ".h-h1, .h-h2, .h-h3, .paragraph, h1, h2, h3, h4, p";
 
-const num = (value: string | undefined, fallback: number) => {
-  const parsed = Number.parseFloat(value ?? "");
-  return Number.isFinite(parsed) ? parsed : fallback;
+type RevealConfig = {
+  stagger: number;
+  duration: number;
+  delay: number;
+  y: number;
+  once: boolean;
+  rootMargin: string;
+  ease: string;
 };
 
-/** data-module="text-reveal" — line reveal on scroll. data-once="true" to play once only */
-export default function (element: HTMLElement, dataset: DOMStringMap) {
-  const stagger = num(dataset.stagger, 0.08);
-  const duration = num(dataset.duration, 1);
-  const delay = num(dataset.delay, 0);
-  const y = num(dataset.y, 100);
-  const once = dataset.once === "true";
-  const rootMargin = dataset.rootMargin || "0px 0px -10% 0px";
-  const ease = dataset.ease || "expo.out";
+const getTargets = (wrapper: HTMLElement, dataset: DOMStringMap) => {
+  const marked = Array.from(
+    wrapper.querySelectorAll<HTMLElement>("[data-text-reveal]")
+  );
+  if (marked.length) return marked;
+
+  const selector = dataset.target || DEFAULT_TARGET;
+  const found = Array.from(wrapper.querySelectorAll<HTMLElement>(selector));
+  if (found.length) return found;
+
+  // Leaf: data-module directly on a text node (backwards compatible)
+  if (wrapper.matches("[data-text-reveal]") || wrapper.matches(selector)) {
+    return [wrapper];
+  }
+
+  return [];
+};
+
+const createReveal = (element: HTMLElement, config: RevealConfig) => {
   const sourceText = element.textContent ?? "";
 
   let split: SplitText | null = null;
@@ -113,29 +131,29 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
 
   const play = () => {
     if (isEditor || reduced) return;
-    if (once && hasPlayed) return;
+    if (config.once && hasPlayed) return;
     if (!ensureSplit()) return;
 
-    if (once) hasPlayed = true;
+    if (config.once) hasPlayed = true;
 
     gsap.fromTo(
       split!.lines,
-      { yPercent: y },
+      { yPercent: config.y },
       {
         yPercent: 0,
-        duration,
-        delay,
-        stagger,
-        ease,
+        duration: config.duration,
+        delay: config.delay,
+        stagger: config.stagger,
+        ease: config.ease,
       }
     );
   };
 
   const reset = () => {
-    if (once || !split?.lines.length) return;
+    if (config.once || !split?.lines.length) return;
     hasPlayed = false;
     gsap.killTweensOf(split.lines);
-    gsap.set(split.lines, { yPercent: y });
+    gsap.set(split.lines, { yPercent: config.y });
   };
 
   const bindObserver = () => {
@@ -143,39 +161,88 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
 
     observer = onView(element, {
       autoStart: true,
-      once,
-      rootMargin,
+      once: config.once,
+      rootMargin: config.rootMargin,
       callback: ({ isIn }) => {
         if (isIn) play();
         else reset();
       },
     });
 
-    // Above-the-fold fallback for first paint timing.
     requestAnimationFrame(() => {
       const rect = element.getBoundingClientRect();
       if (rect.top < window.innerHeight * 0.92 && rect.bottom > 0) play();
     });
   };
 
-  handleEditor((editor) => {
-    isEditor = editor;
-
-    if (editor) {
-      destroyObserver();
-      clearSplit();
-      return;
-    }
-
+  const start = () => {
+    if (isEditor || reduced || observer) return;
     bindObserver();
+  };
+
+  const stop = () => {
+    destroyObserver();
+    clearSplit();
+  };
+
+  return {
+    setEditor(editor: boolean) {
+      isEditor = editor;
+      if (editor) stop();
+      else start();
+    },
+    start,
+    stop,
+  };
+};
+
+/**
+ * data-module="text-reveal" on a wrapper — finds child text automatically.
+ * Optional: data-target=".h-h1, .paragraph" or mark items with data-text-reveal.
+ * Leaf mode: data-module on the text element itself still works.
+ */
+export default function (element: HTMLElement, dataset: DOMStringMap) {
+  const baseConfig: RevealConfig = {
+    stagger: toNumber(dataset.stagger, 0.08),
+    duration: toNumber(dataset.duration, 1),
+    delay: toNumber(dataset.delay, 0),
+    y: toNumber(dataset.y, 100),
+    once: dataset.once === "true",
+    rootMargin: dataset.rootMargin || "0px 0px -10% 0px",
+    ease: dataset.ease || "expo.out",
+  };
+
+  const targets = getTargets(element, dataset);
+  if (!targets.length) return;
+
+  const instances = targets.map((target) => {
+    const d = target.dataset;
+    const config: RevealConfig = {
+      stagger: toNumber(d.stagger, baseConfig.stagger),
+      duration: toNumber(d.duration, baseConfig.duration),
+      delay: toNumber(d.delay, baseConfig.delay),
+      y: toNumber(d.y, baseConfig.y),
+      once:
+        d.once === "true"
+          ? true
+          : d.once === "false"
+            ? false
+            : baseConfig.once,
+      rootMargin: d.rootMargin || baseConfig.rootMargin,
+      ease: d.ease || baseConfig.ease,
+    };
+    return createReveal(target, config);
+  });
+
+  handleEditor((editor) => {
+    instances.forEach((instance) => instance.setEditor(editor));
   });
 
   onMount(() => {
-    bindObserver();
+    instances.forEach((instance) => instance.start());
   });
 
   onDestroy(() => {
-    destroyObserver();
-    clearSplit();
+    instances.forEach((instance) => instance.stop());
   });
 }

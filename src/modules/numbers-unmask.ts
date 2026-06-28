@@ -1,12 +1,13 @@
 import { onDestroy, onTrack } from "@/modules/_";
-import { clamp, map } from "@utils/math";
+import { clamp, map, toNumber } from "@utils/math";
 import { reduced } from "@lib/gsap";
 import { handleEditor } from "@webflow/detect-editor";
 
-const num = (value: string | undefined, fallback: number) => {
-  const parsed = Number.parseFloat(value ?? "");
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
+const TARGET_SELECTOR = "[data-unmask-target], .numbers";
+const DEFAULT_FROM = -110;
+
+const getTargets = (item: HTMLElement) =>
+  Array.from(item.querySelectorAll<HTMLElement>(TARGET_SELECTOR));
 
 const applyProgress = (
   target: HTMLElement,
@@ -40,14 +41,12 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
   };
 
   const initItem = (item: HTMLElement) => {
-    const targets = Array.from(
-      item.querySelectorAll<HTMLElement>("[data-unmask-target], .numbers")
-    );
+    const targets = getTargets(item);
     if (!targets.length) return;
 
-    const start = num(item.dataset.start, 0);
-    const end = num(item.dataset.end, 0.48);
-    const from = num(item.dataset.from, -110);
+    const start = toNumber(item.dataset.start, 0);
+    const end = toNumber(item.dataset.end, 0.48);
+    const from = toNumber(item.dataset.from, DEFAULT_FROM);
     const once = item.dataset.once === "true";
     const top = item.dataset.top === "top" ? "top" : "bottom";
     const bottom = item.dataset.bottom === "bottom" ? "bottom" : "top";
@@ -99,11 +98,8 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
 
     if (isEditor || reduced) {
       items.forEach((item) => {
-        const targets = Array.from(
-          item.querySelectorAll<HTMLElement>("[data-unmask-target], .numbers")
-        );
         item.style.overflow = "hidden";
-        resetTargets(targets, 1, -110);
+        resetTargets(getTargets(item), 1, DEFAULT_FROM);
       });
       return;
     }

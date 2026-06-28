@@ -56,6 +56,12 @@ export function clamp(min: number, max: number, num: number): number {
   return Math.min(Math.max(num, min), max);
 }
 
+/** Parse a (dataset) string to a finite number, falling back when invalid. */
+export function toNumber(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseFloat(value ?? "");
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 /** ------------ Angles **/
 export function radToDeg(r: number): number {
   return (r * 180) / Math.PI;
