@@ -6,14 +6,15 @@ import { handleEditor } from "@webflow/detect-editor";
 
 const DESKTOP_MQ = "(min-width: 992px) and (min-height: 701px)";
 
-/** data-module="partnership" on .partner-track. CSS: @media (max-width:991px),(max-height:700px). */
-export default function (element: HTMLElement, _dataset: DOMStringMap) {
+/** data-module="partnership" on .partner-track. data-debug to force all accordions open. */
+export default function (element: HTMLElement, dataset: DOMStringMap) {
   const items = Array.from(
     element.querySelectorAll<HTMLElement>(".accordion")
   );
 
   if (!items.length) return;
 
+  const debug = dataset.debug != null && dataset.debug !== "false";
   const desktopMq = window.matchMedia(DESKTOP_MQ);
   const count = items.length;
 
@@ -45,12 +46,13 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
 
   const applyMode = () => {
     activeIndex = -1;
-    if (desktopMq.matches) updateDesktop();
-    else setAllOpen(true);
+    if (debug || !desktopMq.matches) setAllOpen(true);
+    else updateDesktop();
   };
 
   const onScroll = () => {
-    if (desktopMq.matches) updateDesktop();
+    if (debug || !desktopMq.matches) return;
+    updateDesktop();
   };
 
   const start = () => {
