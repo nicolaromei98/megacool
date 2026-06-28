@@ -29,3 +29,12 @@
   display: block;
   will-change: transform;
 }
+
+/* numbers-unmask — scroll clip reveal for solution metrics */
+[data-module="numbers-unmask"] [data-unmask-item] {
+  overflow: hidden;
+}
+
+[data-module="numbers-unmask"] [data-unmask-target] {
+  will-change: transform;
+}

@@ -12,13 +12,13 @@ const num = (value: string | undefined, fallback: number) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-/** data-module="text-reveal" — line-by-line reveal on scroll into view */
+/** data-module="text-reveal" — line reveal on scroll. data-once="true" to play once only */
 export default function (element: HTMLElement, dataset: DOMStringMap) {
   const stagger = num(dataset.stagger, 0.08);
   const duration = num(dataset.duration, 1);
   const delay = num(dataset.delay, 0);
   const y = num(dataset.y, 100);
-  const once = dataset.once !== "false";
+  const once = dataset.once === "true";
   const rootMargin = dataset.rootMargin || "0px 0px -10% 0px";
   const ease = dataset.ease || "expo.out";
   const sourceText = element.textContent ?? "";
@@ -112,10 +112,11 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
   };
 
   const play = () => {
-    if (isEditor || reduced || (once && hasPlayed)) return;
+    if (isEditor || reduced) return;
+    if (once && hasPlayed) return;
     if (!ensureSplit()) return;
 
-    hasPlayed = true;
+    if (once) hasPlayed = true;
 
     gsap.fromTo(
       split!.lines,
