@@ -4,6 +4,28 @@
 @import "./mod/utils.css";
 @import "./mod/ilya.css";
 
-body {
-  /* background-color: red; */
+/* text-hover — duplicate char via text-shadow, slide up on hover (see text-hover.ts) */
+[data-module="text-hover"] {
+  overflow: hidden;
+}
+
+[data-module="text-hover"] .th-char {
+  display: inline-block;
+  text-shadow: 0 var(--text-hover-shift, 1.3em) 0 currentColor;
+  transition: transform var(--text-hover-duration, 0.3s) ease-in-out;
+}
+
+[data-module="text-hover"]:hover .th-char {
+  transform: translateY(calc(-1 * var(--text-hover-shift, 1.3em)));
+}
+
+/* text-reveal — line clip + slide up on scroll (see text-reveal.ts) */
+[data-module="text-reveal"] .tr-line-wrap {
+  overflow: hidden;
+  display: block;
+}
+
+[data-module="text-reveal"] .tr-line {
+  display: block;
+  will-change: transform;
 }
