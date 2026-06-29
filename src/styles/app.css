@@ -9,6 +9,14 @@
   overflow: hidden;
 }
 
+/* Single-line clip after split — hides the text-shadow duplicate sitting below each char */
+[data-module="text-hover"].th-is-split {
+  display: block;
+  line-height: 1;
+  height: 1em;
+  white-space: nowrap;
+}
+
 [data-module="text-hover"] .th-char {
   display: inline-block;
   text-shadow: 0 var(--text-hover-shift, 1.3em) 0 currentColor;
