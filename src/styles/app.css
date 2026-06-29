@@ -38,13 +38,3 @@
 [data-module="numbers-unmask"] [data-unmask-target] {
   will-change: transform;
 }
-
-/* tick-meter — sound-meter tick wave + cross-fading labels (see tick-meter.ts) */
-[data-module="tick-meter"] .smh__tick {
-  transform-origin: center;
-  will-change: transform, background-color;
-}
-
-[data-module="tick-meter"] [data-label] {
-  will-change: opacity, filter;
-}
