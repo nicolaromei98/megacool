@@ -38,3 +38,16 @@
 [data-module="numbers-unmask"] [data-unmask-target] {
   will-change: transform;
 }
+
+/* tick-meter — label stack + square alignment (see tick-meter.ts) */
+.smh__data-labels-wrap:not(.is-ready) .smh__data-label:not(:first-child) {
+  visibility: hidden;
+}
+
+.smh__data-labels-wrap.is-ready .smh__data-label {
+  visibility: hidden;
+}
+
+.smh__data-labels-wrap.is-ready .smh__data-label.is-active {
+  visibility: visible;
+}

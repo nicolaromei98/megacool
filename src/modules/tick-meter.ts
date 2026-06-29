@@ -7,6 +7,8 @@ import { handleEditor } from "@webflow/detect-editor";
 const TICK_CLASS = "smh__tick";
 const CHAR_CLASS = "tm-char";
 const TEXT_SELECTOR = ".eyebrow";
+const ACTIVE_CLASS = "is-active";
+const READY_CLASS = "is-ready";
 
 const shuffle = <T>(items: T[]): T[] => {
   const copy = [...items];
@@ -45,6 +47,8 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
   const span = config.count + config.width * 2;
 
   const scope = element.parentElement ?? document;
+  const labelsWrap =
+    scope.querySelector<HTMLElement>(".smh__data-labels-wrap") ?? null;
   const labels = Array.from(scope.querySelectorAll<HTMLElement>("[data-label]"));
 
   const getTextEl = (label: HTMLElement): HTMLElement =>
@@ -93,6 +97,12 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     getTextEl(label).textContent = text;
   };
 
+  const setLabelActive = (index: number) => {
+    labels.forEach((label, i) => {
+      label.classList.toggle(ACTIVE_CLASS, i === index);
+    });
+  };
+
   const buildChars = (label: HTMLElement, text: string) => {
     const textEl = getTextEl(label);
     killLabelTweens();
@@ -114,20 +124,20 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     restoreLabel(label, text);
   };
 
-  const revealText = (label: HTMLElement, text: string, animate = true) => {
+  const revealText = (label: HTMLElement, text: string) => {
     const chars = buildChars(label, text);
     if (!chars.length) return;
 
-    if (!animate || reduced) {
-      gsap.set(chars, { autoAlpha: 1 });
+    if (reduced) {
+      gsap.set(chars, { opacity: 1 });
       return;
     }
 
-    gsap.set(chars, { autoAlpha: 0 });
+    gsap.set(chars, { opacity: 0 });
 
     shuffle(chars).forEach((char) => {
       gsap.to(char, {
-        autoAlpha: 1,
+        opacity: 1,
         duration: config.reveal,
         delay: Math.random() * config.fade,
         ease: "power2.out",
@@ -135,35 +145,31 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     });
   };
 
-  const showLabel = (index: number, animate = false) => {
+  const showLabel = (index: number) => {
     labels.forEach((label, i) => {
       if (i === index) {
-        gsap.set(label, { autoAlpha: 1 });
-        if (animate) revealText(label, texts[i]);
-        else setTextInstant(label, texts[i]);
+        setTextInstant(label, texts[i]);
       } else {
-        gsap.set(label, { autoAlpha: 0 });
         restoreLabel(label, texts[i]);
       }
     });
+    setLabelActive(index);
   };
 
   const resetLabels = () => {
     if (!labels.length) return;
     activeLabel = 0;
     showLabel(0);
+    labelsWrap?.classList.add(READY_CLASS);
   };
 
   const swapLabel = () => {
     if (labels.length < 2) return;
 
-    const prev = activeLabel;
     const next = (activeLabel + 1) % labels.length;
 
-    gsap.set(labels[prev], { autoAlpha: 0 });
-    restoreLabel(labels[prev], texts[prev]);
-
-    gsap.set(labels[next], { autoAlpha: 1 });
+    restoreLabel(labels[activeLabel], texts[activeLabel]);
+    setLabelActive(next);
     revealText(labels[next], texts[next]);
 
     activeLabel = next;
@@ -216,8 +222,16 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     });
   };
 
+  const cleanupLabels = () => {
+    killLabelTweens();
+    labels.forEach((label, i) => {
+      restoreLabel(label, texts[i]);
+      label.classList.remove(ACTIVE_CLASS);
+    });
+    labelsWrap?.classList.remove(READY_CLASS);
+  };
+
   createTicks();
-  resetLabels();
 
   handleEditor((editor) => {
     isEditor = editor;
@@ -226,19 +240,24 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
       staticState();
       if (labels.length) showLabel(activeLabel);
     } else {
+      resetLabels();
       start();
     }
   });
 
   onMount(() => {
-    if (!isEditor && !reduced) start();
-    else staticState();
+    if (!isEditor && !reduced) {
+      resetLabels();
+      start();
+    } else {
+      staticState();
+      if (labels.length) showLabel(activeLabel);
+    }
   });
 
   onDestroy(() => {
     stop();
-    killLabelTweens();
-    labels.forEach((label, i) => restoreLabel(label, texts[i]));
+    cleanupLabels();
     removeTicks();
   });
 }

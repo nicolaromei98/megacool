@@ -30,7 +30,6 @@ const getTargets = (wrapper: HTMLElement, dataset: DOMStringMap) => {
   const found = Array.from(wrapper.querySelectorAll<HTMLElement>(selector));
   if (found.length) return found;
 
-  // Leaf: data-module directly on a text node (backwards compatible)
   if (wrapper.matches("[data-text-reveal]") || wrapper.matches(selector)) {
     return [wrapper];
   }
@@ -48,6 +47,8 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
   let animatedText: HTMLSpanElement | null = null;
   let isEditor = false;
   let hasPlayed = false;
+  let prepared = false;
+  let playing = false;
 
   const setVisuallyHidden = (node: HTMLElement) => {
     node.style.position = "absolute";
@@ -93,6 +94,8 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     srText = null;
     animatedText = null;
     hasPlayed = false;
+    prepared = false;
+    playing = false;
 
     if (restoreText) element.textContent = sourceText;
   };
@@ -129,13 +132,23 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     return true;
   };
 
+  const prepareHidden = () => {
+    if (prepared || isEditor || reduced) return;
+    if (!ensureSplit()) return;
+    gsap.set(split!.lines, { yPercent: config.y });
+    prepared = true;
+  };
+
   const play = () => {
     if (isEditor || reduced) return;
     if (config.once && hasPlayed) return;
+    if (playing) return;
     if (!ensureSplit()) return;
 
+    playing = true;
     if (config.once) hasPlayed = true;
 
+    gsap.killTweensOf(split!.lines);
     gsap.fromTo(
       split!.lines,
       { yPercent: config.y },
@@ -145,13 +158,16 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
         delay: config.delay,
         stagger: config.stagger,
         ease: config.ease,
+        onComplete: () => {
+          playing = false;
+        },
       }
     );
   };
 
   const reset = () => {
     if (config.once || !split?.lines.length) return;
-    hasPlayed = false;
+    playing = false;
     gsap.killTweensOf(split.lines);
     gsap.set(split.lines, { yPercent: config.y });
   };
@@ -168,15 +184,11 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
         else reset();
       },
     });
-
-    requestAnimationFrame(() => {
-      const rect = element.getBoundingClientRect();
-      if (rect.top < window.innerHeight * 0.92 && rect.bottom > 0) play();
-    });
   };
 
   const start = () => {
     if (isEditor || reduced || observer) return;
+    prepareHidden();
     bindObserver();
   };
 
@@ -191,6 +203,7 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
       if (editor) stop();
       else start();
     },
+    prepareHidden,
     start,
     stop,
   };
@@ -207,7 +220,7 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     duration: toNumber(dataset.duration, 1),
     delay: toNumber(dataset.delay, 0),
     y: toNumber(dataset.y, 100),
-    once: dataset.once === "true",
+    once: dataset.once !== "false",
     rootMargin: dataset.rootMargin || "0px 0px -10% 0px",
     ease: dataset.ease || "expo.out",
   };
@@ -223,10 +236,10 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
       delay: toNumber(d.delay, baseConfig.delay),
       y: toNumber(d.y, baseConfig.y),
       once:
-        d.once === "true"
-          ? true
-          : d.once === "false"
-            ? false
+        d.once === "false"
+          ? false
+          : d.once === "true"
+            ? true
             : baseConfig.once,
       rootMargin: d.rootMargin || baseConfig.rootMargin,
       ease: d.ease || baseConfig.ease,
