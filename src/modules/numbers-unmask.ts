@@ -5,6 +5,9 @@ import { handleEditor } from "@webflow/detect-editor";
 
 const TARGET_SELECTOR = "[data-unmask-target], .numbers";
 const DEFAULT_FROM = -110;
+/** Scroll progress when reveal begins (negative = starts before item enters track). */
+const DEFAULT_START = -0.12;
+const DEFAULT_END = 0.48;
 
 const getTargets = (item: HTMLElement) =>
   Array.from(item.querySelectorAll<HTMLElement>(TARGET_SELECTOR));
@@ -19,7 +22,8 @@ const applyProgress = (
   target.style.transform = `translate3d(0, ${y}%, 0)`;
 };
 
-/** data-module="numbers-unmask" on solutions section; item: data-unmask-item; target: data-unmask-target */
+/** data-module="numbers-unmask" on solutions section; item: data-unmask-item; target: data-unmask-target.
+ *  Optional on item: data-start (default -0.12), data-end (default 0.48), data-from (default -110). */
 export default function (element: HTMLElement, _dataset: DOMStringMap) {
   const items = Array.from(
     element.querySelectorAll<HTMLElement>("[data-unmask-item], .number__w")
@@ -44,8 +48,8 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
     const targets = getTargets(item);
     if (!targets.length) return;
 
-    const start = toNumber(item.dataset.start, 0);
-    const end = toNumber(item.dataset.end, 0.48);
+    const start = toNumber(item.dataset.start, DEFAULT_START);
+    const end = toNumber(item.dataset.end, DEFAULT_END);
     const from = toNumber(item.dataset.from, DEFAULT_FROM);
     const once = item.dataset.once === "true";
     const top = item.dataset.top === "top" ? "top" : "bottom";
