@@ -7,6 +7,7 @@ import {
   DepthTexture,
   DepthFormat,
   UnsignedShortType,
+  HalfFloatType,
   LinearFilter,
   OrthographicCamera,
   ShaderMaterial,
@@ -51,6 +52,8 @@ import fragmentShader from "@/gl/shards/fragment.glsl";
  * Optional data attributes:
  *   data-base-color      hex   blade base/emissive color (default #0E2D2A)
  *   data-highlight-color hex   hover highlight color (default #275956)
+ *   data-gradient-start  0–1   horizontal UV where right-side darkening begins (default 0.35)
+ *   data-gradient-darken 0–1   brightness at the right edge, 1 = no change (default 0.55)
  */
 export default function (element: HTMLElement, dataset: DOMStringMap) {
   let started = false;
@@ -183,7 +186,16 @@ function setup(element: HTMLElement, dataset: DOMStringMap) {
   const shards = createShards(scene, dataset);
 
   /** -- <post processing> */
-  const post = createPost({ renderer, scene, camera, width, height, pixelRatio });
+  const post = createPost({
+    renderer,
+    scene,
+    camera,
+    width,
+    height,
+    pixelRatio,
+    gradientStart: parseFloat(dataset.gradientStart ?? "0.35"),
+    gradientDarken: parseFloat(dataset.gradientDarken ?? "0.55"),
+  });
 
   /** -- <mouse> */
   const mouse = new Vector2();
@@ -474,6 +486,8 @@ function createPost(opts: {
   width: number;
   height: number;
   pixelRatio: number;
+  gradientStart: number;
+  gradientDarken: number;
 }) {
   const { renderer, scene, camera } = opts;
 
@@ -484,7 +498,10 @@ function createPost(opts: {
 
   let { w, h } = physical(opts.width, opts.height);
 
-  const renderTarget = new WebGLRenderTarget(w, h, { samples: 2 });
+  const renderTarget = new WebGLRenderTarget(w, h, {
+    samples: 2,
+    type: HalfFloatType,
+  });
   renderTarget.stencilBuffer = false;
   renderTarget.depthTexture = new DepthTexture(w, h);
   renderTarget.depthTexture.format = DepthFormat;
@@ -499,6 +516,7 @@ function createPost(opts: {
     depthBuffer: false,
     stencilBuffer: false,
     generateMipmaps: false,
+    type: HalfFloatType,
   });
   const blurTargetV = new WebGLRenderTarget(bw, bh, {
     minFilter: LinearFilter,
@@ -506,6 +524,7 @@ function createPost(opts: {
     depthBuffer: false,
     stencilBuffer: false,
     generateMipmaps: false,
+    type: HalfFloatType,
   });
 
   const blurVertex = /* glsl */ `
@@ -516,11 +535,34 @@ function createPost(opts: {
     }
   `;
   const blurFragment = /* glsl */ `
+    #include <packing>
     varying vec2 vUv;
     uniform sampler2D tDiffuse;
+    uniform sampler2D tDepth;
     uniform vec2 uTexelSize;
     uniform vec2 uDirection;
     uniform float uBlurStrength;
+    uniform float cameraNear;
+    uniform float cameraFar;
+    uniform float uDepthBias;
+
+    float readDepth(vec2 coord) {
+      float fragCoordZ = texture2D(tDepth, coord).x;
+      float viewZ = perspectiveDepthToViewZ(fragCoordZ, cameraNear, cameraFar);
+      return viewZToOrthographicDepth(viewZ, cameraNear, cameraFar);
+    }
+
+    // Depth-aware sample: samples that are much NEARER than the pixel being
+    // blurred are foreground (the sharp blades). Fading their weight out stops
+    // them from bleeding into the blurred background, which removes the halo
+    // "bars" that hug each blade. Samples at equal-or-greater depth are kept.
+    void addSample(vec2 uv, float w, float centerDepth, inout vec4 c, inout float total) {
+      float sd = readDepth(uv);
+      float weight = w * smoothstep(centerDepth - uDepthBias, centerDepth, sd);
+      c += texture2D(tDiffuse, uv) * weight;
+      total += weight;
+    }
+
     void main() {
       float w0 = 0.227027;
       float w1 = 0.1945946;
@@ -528,16 +570,20 @@ function createPost(opts: {
       float w3 = 0.054054;
       float w4 = 0.016216;
       vec2 stepSize = uTexelSize * uDirection * uBlurStrength;
+      float centerDepth = readDepth(vUv);
+
       vec4 c = texture2D(tDiffuse, vUv) * w0;
-      c += texture2D(tDiffuse, vUv + stepSize * 1.0) * w1;
-      c += texture2D(tDiffuse, vUv - stepSize * 1.0) * w1;
-      c += texture2D(tDiffuse, vUv + stepSize * 2.0) * w2;
-      c += texture2D(tDiffuse, vUv - stepSize * 2.0) * w2;
-      c += texture2D(tDiffuse, vUv + stepSize * 3.0) * w3;
-      c += texture2D(tDiffuse, vUv - stepSize * 3.0) * w3;
-      c += texture2D(tDiffuse, vUv + stepSize * 4.0) * w4;
-      c += texture2D(tDiffuse, vUv - stepSize * 4.0) * w4;
-      gl_FragColor = c;
+      float total = w0;
+      addSample(vUv + stepSize * 1.0, w1, centerDepth, c, total);
+      addSample(vUv - stepSize * 1.0, w1, centerDepth, c, total);
+      addSample(vUv + stepSize * 2.0, w2, centerDepth, c, total);
+      addSample(vUv - stepSize * 2.0, w2, centerDepth, c, total);
+      addSample(vUv + stepSize * 3.0, w3, centerDepth, c, total);
+      addSample(vUv - stepSize * 3.0, w3, centerDepth, c, total);
+      addSample(vUv + stepSize * 4.0, w4, centerDepth, c, total);
+      addSample(vUv - stepSize * 4.0, w4, centerDepth, c, total);
+
+      gl_FragColor = c / total;
     }
   `;
 
@@ -546,9 +592,13 @@ function createPost(opts: {
     toneMapped: false,
     uniforms: {
       tDiffuse: { value: null },
+      tDepth: { value: renderTarget.depthTexture },
       uTexelSize: { value: new Vector2(1 / bw, 1 / bh) },
       uDirection: { value: new Vector2(1, 0) },
       uBlurStrength: { value: 4 },
+      cameraNear: { value: camera.near },
+      cameraFar: { value: camera.far },
+      uDepthBias: { value: 0.03 },
     },
     vertexShader: blurVertex,
     fragmentShader: blurFragment,
@@ -557,9 +607,13 @@ function createPost(opts: {
     toneMapped: false,
     uniforms: {
       tDiffuse: { value: null },
+      tDepth: { value: renderTarget.depthTexture },
       uTexelSize: { value: new Vector2(1 / bw, 1 / bh) },
       uDirection: { value: new Vector2(0, 1) },
       uBlurStrength: { value: 4 },
+      cameraNear: { value: camera.near },
+      cameraFar: { value: camera.far },
+      uDepthBias: { value: 0.03 },
     },
     vertexShader: blurVertex,
     fragmentShader: blurFragment,
@@ -582,6 +636,8 @@ function createPost(opts: {
       uFocusDistance: { value: 0.0 },
       uFocusRange: { value: 0.0 },
       uFocusFalloff: { value: 0.4 },
+      uGradientStart: { value: opts.gradientStart },
+      uGradientDarken: { value: opts.gradientDarken },
     },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
@@ -603,11 +659,22 @@ function createPost(opts: {
       uniform float uFocusDistance;
       uniform float uFocusRange;
       uniform float uFocusFalloff;
+      uniform float uGradientStart;
+      uniform float uGradientDarken;
 
       float readDepth(sampler2D depthSampler, vec2 coord) {
         float fragCoordZ = texture2D(depthSampler, coord).x;
         float viewZ = perspectiveDepthToViewZ(fragCoordZ, cameraNear, cameraFar);
         return viewZToOrthographicDepth(viewZ, cameraNear, cameraFar);
+      }
+
+      // Screen-space triangular-PDF dither. Breaks up the 8-bit banding that
+      // smooth gradients (fog, blur, the right-side darkening) quantize into
+      // visible stripes/bars. Amplitude is ~1 LSB so it stays invisible.
+      float dither(vec2 coord) {
+        float r = fract(sin(dot(coord, vec2(12.9898, 78.233))) * 43758.5453);
+        float g = fract(sin(dot(coord + 1.0, vec2(12.9898, 78.233))) * 43758.5453);
+        return (r + g - 1.0) / 255.0;
       }
 
       void main() {
@@ -625,6 +692,9 @@ function createPost(opts: {
         gl_FragColor = mix(sceneCol, blurCol, blurMix);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
+        float gradient = smoothstep(uGradientStart, 1.0, vUv.x);
+        gl_FragColor.rgb *= mix(1.0, uGradientDarken, gradient);
+        gl_FragColor.rgb += dither(gl_FragCoord.xy);
       }
     `,
   });
