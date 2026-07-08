@@ -8,6 +8,7 @@ import type { Observe } from "@/modules/_/observe";
 const LINE_CLASS = "tr-line";
 const LINE_WRAP_CLASS = "tr-line-wrap";
 const ANIMATED_CLASS = "tr-animated";
+const REFLOW_DEBOUNCE_MS = 150;
 const DEFAULT_TARGET =
   ".h-h1, .h-h2, .h-h3, .paragraph, h1, h2, h3, h4, p";
 
@@ -51,14 +52,17 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
   let prepared = false;
   let playing = false;
   let isInView = false;
-  let unsubResize: (() => void) | null = null;
+  let isRevealed = false;
   let resizeObserver: ResizeObserver | null = null;
-  let lastSize = { width: 0, height: 0 };
-  let refreshFrame = 0;
+  let unsubResize: (() => void) | null = null;
+  let reflowTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastWidth = -1;
+  let lastFontSize = "";
 
   const splitConfig = {
     type: "lines" as const,
     linesClass: LINE_CLASS,
+    autoSplit: true,
     deepSlice: true,
     onSplit: (self: SplitText) => handleSplit(self),
   };
@@ -116,6 +120,11 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
       return;
     }
 
+    if (isRevealed) {
+      gsap.set(self.lines, { yPercent: 0 });
+      return;
+    }
+
     if (isInView) {
       playing = true;
       return gsap.fromTo(
@@ -129,6 +138,7 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
           ease: config.ease,
           onComplete: () => {
             playing = false;
+            isRevealed = true;
             if (config.once) hasPlayed = true;
           },
         }
@@ -139,49 +149,58 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     prepared = true;
   };
 
-  const refreshSplit = () => {
-    if (!split?.isSplit || isEditor || reduced) return;
-    cancelAnimationFrame(refreshFrame);
-    refreshFrame = requestAnimationFrame(() => {
-      split?.split(splitConfig);
-    });
-  };
-
-  const onFontsReady = () => refreshSplit();
-
-  const bindResize = () => {
-    if (unsubResize || resizeObserver) return;
-
-    lastSize = {
-      width: element.offsetWidth,
-      height: element.offsetHeight,
-    };
-
-    unsubResize = Resize.add(refreshSplit);
-
-    resizeObserver = new ResizeObserver(() => {
-      const width = element.offsetWidth;
-      const height = element.offsetHeight;
-      if (width === lastSize.width && height === lastSize.height) return;
-      lastSize = { width, height };
-      refreshSplit();
-    });
-    resizeObserver.observe(element);
-
-    document.fonts?.addEventListener("loadingdone", onFontsReady);
-  };
-
-  const unbindResize = () => {
-    unsubResize?.();
-    unsubResize = null;
+  const unbindReflow = () => {
+    if (reflowTimer) {
+      clearTimeout(reflowTimer);
+      reflowTimer = null;
+    }
     resizeObserver?.disconnect();
     resizeObserver = null;
-    document.fonts?.removeEventListener("loadingdone", onFontsReady);
+    unsubResize?.();
+    unsubResize = null;
+  };
+
+  const reflowSplit = () => {
+    if (!split || isEditor || reduced || !animatedText || !split.isSplit) return;
+
+    const width = element.clientWidth;
+    const fontSize = getComputedStyle(element).fontSize;
+    if (width === lastWidth && fontSize === lastFontSize) return;
+
+    lastWidth = width;
+    lastFontSize = fontSize;
+
+    split.revert();
+    animatedText.innerHTML = sourceHTML;
+    split.split(splitConfig);
+  };
+
+  const scheduleReflow = () => {
+    if (reflowTimer) clearTimeout(reflowTimer);
+    reflowTimer = setTimeout(() => {
+      reflowTimer = null;
+      reflowSplit();
+    }, REFLOW_DEBOUNCE_MS);
+  };
+
+  const bindReflow = () => {
+    unbindReflow();
+    lastWidth = element.clientWidth;
+    lastFontSize = getComputedStyle(element).fontSize;
+
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(scheduleReflow);
+      resizeObserver.observe(element);
+    }
+
+    unsubResize = Resize.add(scheduleReflow);
+    document.fonts?.ready.then(scheduleReflow);
   };
 
   const clearSplit = (restoreText = true) => {
     if (split?.lines) gsap.killTweensOf(split.lines);
 
+    unbindReflow();
     wraps = [];
     split?.revert();
     split = null;
@@ -191,6 +210,9 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     prepared = false;
     playing = false;
     isInView = false;
+    isRevealed = false;
+    lastWidth = -1;
+    lastFontSize = "";
 
     if (restoreText) element.innerHTML = sourceHTML;
   };
@@ -235,6 +257,7 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     if (config.once || !split?.isSplit) return;
 
     isInView = false;
+    isRevealed = false;
     playing = false;
     gsap.killTweensOf(split.lines);
     gsap.set(split.lines, { yPercent: config.y });
@@ -257,14 +280,12 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
   const start = () => {
     if (isEditor || reduced || observer) return;
     prepareHidden();
-    bindResize();
+    bindReflow();
     bindObserver();
   };
 
   const stop = () => {
-    cancelAnimationFrame(refreshFrame);
     destroyObserver();
-    unbindResize();
     clearSplit();
   };
 
