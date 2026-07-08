@@ -6,7 +6,6 @@ const ACTIVE_ATTR = "data-toggle-active";
 const EXCLUDED_VALUE = "contact";
 
 /**
- * data-module="toggle-switch" on the toggle wrapper (replaces data-toggle-init).
  *
  * Child buttons use [data-toggle-btn]; mark the default with [data-toggle-active].
  * Buttons with data-toggle-btn="contact" are excluded from the sliding indicator.
