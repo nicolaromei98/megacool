@@ -1,12 +1,13 @@
 import gsap from "@lib/gsap";
-import { Scroll, refreshScroll } from "@lib/scroll";
+import { Scroll } from "@lib/scroll";
 import { Resize } from "@lib/subs";
 import { onMount, onDestroy } from "@/modules/_";
 import { clientRect } from "@utils/client-rect";
 import { clamp, map } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
 
-/** data-module="footer-parallax" on wrapper (overflow:hidden). data-footer-parallax-inner, data-footer-parallax-dark. */
+/** data-module="footer-parallax" on wrapper (overflow:hidden). data-footer-parallax-inner, data-footer-parallax-dark.
+ *  Parallax range spans footer entrance → full scroll-through (not a full viewport if footer is shorter). */
 export default function (element: HTMLElement, dataset: DOMStringMap) {
   const inner = element.querySelector<HTMLElement>(
     "[data-footer-parallax-inner]"
@@ -29,7 +30,8 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
   const measure = () => {
     const rect = clientRect(element);
     bounds.start = rect.top - Resize.height;
-    bounds.end = rect.top;
+    // Complete parallax within available scroll — short footers can't travel a full viewport
+    bounds.end = bounds.start + Math.min(Resize.height, rect.height);
     lastProgress = -1;
   };
 
@@ -51,9 +53,6 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
       measure();
       render();
     });
-    // Recalculate Lenis limit once assets settle — no wrapper height changes.
-    document.fonts?.ready.then(refreshScroll);
-    requestAnimationFrame(refreshScroll);
   };
 
   const stop = () => {
