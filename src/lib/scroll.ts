@@ -1,5 +1,6 @@
 import Lenis from "lenis";
-import gsap from "./gsap";
+import gsap, { ScrollTrigger } from "./gsap";
+import { Resize } from "@lib/subs";
 import { handleEditor } from "@webflow/detect-editor";
 
 type SubscriberFn = (data: any) => void;
@@ -13,6 +14,35 @@ const SCROLL_CONFIG = {
   touchMultiplier: 2,
   // autoResize: true,
 };
+
+let scrollTriggerReady = false;
+
+/** Wire ScrollTrigger to Lenis — safe to call multiple times. */
+export function initScrollTrigger() {
+  if (scrollTriggerReady) return;
+  scrollTriggerReady = true;
+
+  ScrollTrigger.scrollerProxy(document.documentElement, {
+    scrollTop(value) {
+      if (arguments.length) {
+        Scroll.scrollTo(value, { immediate: true });
+      }
+      return Scroll.scroll;
+    },
+    getBoundingClientRect() {
+      return {
+        top: 0,
+        left: 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+    },
+  });
+
+  Scroll.on("scroll", ScrollTrigger.update);
+  ScrollTrigger.addEventListener("refresh", () => Scroll.resize());
+  Resize.add(() => ScrollTrigger.refresh());
+}
 
 class _Scroll extends Lenis {
   #ticker = gsap.ticker.add((time) => this.raf(time * 1000));
@@ -63,5 +93,7 @@ handleEditor((isEditor) => {
     Scroll.destroy();
   } else {
     Scroll.start();
+    initScrollTrigger();
+    requestAnimationFrame(() => ScrollTrigger.refresh());
   }
 });

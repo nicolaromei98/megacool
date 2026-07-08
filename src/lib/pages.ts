@@ -3,6 +3,7 @@ import State from "@lib/hey";
 import { Core } from "@unseenco/taxi";
 import { Transition } from "@lib/page-transitions";
 import { Scroll } from "@lib/scroll";
+import { ScrollTrigger } from "@lib/gsap";
 import { Resize } from "@lib/subs";
 import {
   createCycles,
@@ -64,6 +65,7 @@ export class _Pages extends Core {
     createCycles();
     Scroll.resize();
     Resize.update();
+    ScrollTrigger.refresh();
     tick.restoreFpsDisplay();
 
     // State.PAGE = to;
