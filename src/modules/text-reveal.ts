@@ -1,4 +1,5 @@
 import gsap, { SplitText, reduced } from "@lib/gsap";
+import { Resize } from "@lib/subs";
 import { onMount, onDestroy, onView } from "@/modules/_";
 import { toNumber } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
@@ -50,11 +51,14 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
   let prepared = false;
   let playing = false;
   let isInView = false;
+  let unsubResize: (() => void) | null = null;
+  let resizeObserver: ResizeObserver | null = null;
+  let lastSize = { width: 0, height: 0 };
+  let refreshFrame = 0;
 
   const splitConfig = {
     type: "lines" as const,
     linesClass: LINE_CLASS,
-    autoSplit: true,
     deepSlice: true,
     onSplit: (self: SplitText) => handleSplit(self),
   };
@@ -81,6 +85,7 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     animatedText.innerHTML = sourceHTML;
     animatedText.setAttribute("aria-hidden", "true");
     animatedText.style.display = "block";
+    animatedText.style.width = "100%";
 
     element.innerHTML = "";
     element.appendChild(srText);
@@ -132,6 +137,46 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
 
     gsap.set(self.lines, { yPercent: config.y });
     prepared = true;
+  };
+
+  const refreshSplit = () => {
+    if (!split?.isSplit || isEditor || reduced) return;
+    cancelAnimationFrame(refreshFrame);
+    refreshFrame = requestAnimationFrame(() => {
+      split?.split(splitConfig);
+    });
+  };
+
+  const onFontsReady = () => refreshSplit();
+
+  const bindResize = () => {
+    if (unsubResize || resizeObserver) return;
+
+    lastSize = {
+      width: element.offsetWidth,
+      height: element.offsetHeight,
+    };
+
+    unsubResize = Resize.add(refreshSplit);
+
+    resizeObserver = new ResizeObserver(() => {
+      const width = element.offsetWidth;
+      const height = element.offsetHeight;
+      if (width === lastSize.width && height === lastSize.height) return;
+      lastSize = { width, height };
+      refreshSplit();
+    });
+    resizeObserver.observe(element);
+
+    document.fonts?.addEventListener("loadingdone", onFontsReady);
+  };
+
+  const unbindResize = () => {
+    unsubResize?.();
+    unsubResize = null;
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+    document.fonts?.removeEventListener("loadingdone", onFontsReady);
   };
 
   const clearSplit = (restoreText = true) => {
@@ -212,11 +257,14 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
   const start = () => {
     if (isEditor || reduced || observer) return;
     prepareHidden();
+    bindResize();
     bindObserver();
   };
 
   const stop = () => {
+    cancelAnimationFrame(refreshFrame);
     destroyObserver();
+    unbindResize();
     clearSplit();
   };
 

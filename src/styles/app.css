@@ -28,6 +28,11 @@
 }
 
 /* text-reveal — line clip + slide up on scroll (see text-reveal.ts) */
+[data-module="text-reveal"] .tr-animated {
+  display: block;
+  width: 100%;
+}
+
 [data-module="text-reveal"] .tr-line-wrap {
   overflow: hidden;
   display: block;
