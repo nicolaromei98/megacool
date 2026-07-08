@@ -17,7 +17,6 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
 
   const shift = parseFloat(dataset.parallax ?? "-25");
   const darkFrom = parseFloat(dataset.dark ?? "0.5");
-  const shiftRatio = Math.abs(shift) / 100;
 
   let started = false;
   let isEditor = false;
@@ -26,14 +25,6 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
   let unsubScroll: (() => void) | null = null;
   let unsubResize: (() => void) | null = null;
   let lastProgress = -1;
-
-  /** Keep wrapper tall enough for full inner content + parallax Y shift. */
-  const syncHeight = () => {
-    if (!inner) return;
-    const innerH = inner.scrollHeight;
-    if (innerH <= 0) return;
-    element.style.minHeight = `${Math.ceil(innerH * (1 + shiftRatio))}px`;
-  };
 
   const measure = () => {
     const rect = clientRect(element);
@@ -50,20 +41,19 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     if (dark) gsap.set(dark, { opacity: darkFrom * (1 - p) });
   };
 
-  const layout = () => {
-    syncHeight();
-    measure();
-    render();
-    refreshScroll();
-  };
-
   const start = () => {
     if (started) return;
     started = true;
-    layout();
+    measure();
+    render();
     unsubScroll = Scroll.add(render);
-    unsubResize = Resize.add(layout);
-    document.fonts?.ready.then(layout);
+    unsubResize = Resize.add(() => {
+      measure();
+      render();
+    });
+    // Recalculate Lenis limit once assets settle — no wrapper height changes.
+    document.fonts?.ready.then(refreshScroll);
+    requestAnimationFrame(refreshScroll);
   };
 
   const stop = () => {
@@ -73,10 +63,8 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     unsubResize?.();
     unsubScroll = null;
     unsubResize = null;
-    element.style.minHeight = "";
     if (inner) gsap.set(inner, { clearProps: "transform" });
     if (dark) gsap.set(dark, { clearProps: "opacity" });
-    refreshScroll();
   };
 
   handleEditor((editor) => {
