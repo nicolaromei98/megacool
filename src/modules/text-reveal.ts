@@ -38,7 +38,7 @@ const getTargets = (wrapper: HTMLElement, dataset: DOMStringMap) => {
 };
 
 const createReveal = (element: HTMLElement, config: RevealConfig) => {
-  const sourceText = element.textContent ?? "";
+  const sourceHTML = element.innerHTML.trim();
 
   let split: SplitText | null = null;
   let wraps: HTMLDivElement[] = [];
@@ -49,6 +49,15 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
   let hasPlayed = false;
   let prepared = false;
   let playing = false;
+  let isInView = false;
+
+  const splitConfig = {
+    type: "lines" as const,
+    linesClass: LINE_CLASS,
+    autoSplit: true,
+    deepSlice: true,
+    onSplit: (self: SplitText) => handleSplit(self),
+  };
 
   const setVisuallyHidden = (node: HTMLElement) => {
     node.style.position = "absolute";
@@ -64,29 +73,69 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     if (srText || animatedText) return;
 
     srText = document.createElement("span");
-    srText.textContent = sourceText;
+    srText.innerHTML = sourceHTML;
     setVisuallyHidden(srText);
 
     animatedText = document.createElement("span");
     animatedText.className = ANIMATED_CLASS;
-    animatedText.textContent = sourceText;
+    animatedText.innerHTML = sourceHTML;
     animatedText.setAttribute("aria-hidden", "true");
+    animatedText.style.display = "block";
 
-    element.textContent = "";
+    element.innerHTML = "";
     element.appendChild(srText);
     element.appendChild(animatedText);
   };
 
+  const applyLineWraps = (lines: Element[]) => {
+    wraps = [];
+    lines.forEach((line) => {
+      const wrap = document.createElement("div");
+      wrap.className = LINE_WRAP_CLASS;
+      line.parentNode!.insertBefore(wrap, line);
+      wrap.appendChild(line);
+      wraps.push(wrap);
+    });
+  };
+
+  const handleSplit = (self: SplitText) => {
+    applyLineWraps(self.lines);
+
+    if (isEditor || reduced) {
+      gsap.set(self.lines, { clearProps: "transform" });
+      return;
+    }
+
+    if (config.once && hasPlayed) {
+      gsap.set(self.lines, { yPercent: 0 });
+      return;
+    }
+
+    if (isInView) {
+      playing = true;
+      return gsap.fromTo(
+        self.lines,
+        { yPercent: config.y },
+        {
+          yPercent: 0,
+          duration: config.duration,
+          delay: config.delay,
+          stagger: config.stagger,
+          ease: config.ease,
+          onComplete: () => {
+            playing = false;
+            if (config.once) hasPlayed = true;
+          },
+        }
+      );
+    }
+
+    gsap.set(self.lines, { yPercent: config.y });
+    prepared = true;
+  };
+
   const clearSplit = (restoreText = true) => {
     if (split?.lines) gsap.killTweensOf(split.lines);
-
-    wraps.forEach((wrap) => {
-      const line = wrap.firstElementChild;
-      if (line && wrap.parentNode) {
-        wrap.parentNode.insertBefore(line, wrap);
-        wrap.remove();
-      }
-    });
 
     wraps = [];
     split?.revert();
@@ -96,8 +145,9 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     hasPlayed = false;
     prepared = false;
     playing = false;
+    isInView = false;
 
-    if (restoreText) element.textContent = sourceText;
+    if (restoreText) element.innerHTML = sourceHTML;
   };
 
   const destroyObserver = () => {
@@ -106,14 +156,11 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
   };
 
   const ensureSplit = () => {
-    if (split) return true;
+    if (split?.isSplit) return true;
     buildTextCopies();
     if (!animatedText) return false;
 
-    split = new SplitText(animatedText, {
-      type: "lines",
-      linesClass: LINE_CLASS,
-    });
+    split = new SplitText(animatedText, splitConfig);
 
     if (!split.lines.length) {
       split.revert();
@@ -121,22 +168,12 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
       return false;
     }
 
-    split.lines.forEach((line) => {
-      const wrap = document.createElement("div");
-      wrap.className = LINE_WRAP_CLASS;
-      line.parentNode!.insertBefore(wrap, line);
-      wrap.appendChild(line);
-      wraps.push(wrap);
-    });
-
     return true;
   };
 
   const prepareHidden = () => {
     if (prepared || isEditor || reduced) return;
-    if (!ensureSplit()) return;
-    gsap.set(split!.lines, { yPercent: config.y });
-    prepared = true;
+    ensureSplit();
   };
 
   const play = () => {
@@ -145,28 +182,14 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     if (playing) return;
     if (!ensureSplit()) return;
 
-    playing = true;
-    if (config.once) hasPlayed = true;
-
-    gsap.killTweensOf(split!.lines);
-    gsap.fromTo(
-      split!.lines,
-      { yPercent: config.y },
-      {
-        yPercent: 0,
-        duration: config.duration,
-        delay: config.delay,
-        stagger: config.stagger,
-        ease: config.ease,
-        onComplete: () => {
-          playing = false;
-        },
-      }
-    );
+    isInView = true;
+    split!.split(splitConfig);
   };
 
   const reset = () => {
-    if (config.once || !split?.lines.length) return;
+    if (config.once || !split?.isSplit) return;
+
+    isInView = false;
     playing = false;
     gsap.killTweensOf(split.lines);
     gsap.set(split.lines, { yPercent: config.y });
