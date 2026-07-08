@@ -17,10 +17,18 @@ const SCROLL_CONFIG = {
 
 let scrollTriggerReady = false;
 
+/** Recalculate Lenis scroll limit, then ScrollTrigger positions (one-way — no circular refresh). */
+export function refreshScroll() {
+  Scroll.resize();
+  ScrollTrigger.refresh();
+}
+
 /** Wire ScrollTrigger to Lenis — safe to call multiple times. */
 export function initScrollTrigger() {
   if (scrollTriggerReady) return;
   scrollTriggerReady = true;
+
+  gsap.ticker.lagSmoothing(0);
 
   ScrollTrigger.scrollerProxy(document.documentElement, {
     scrollTop(value) {
@@ -40,8 +48,8 @@ export function initScrollTrigger() {
   });
 
   Scroll.on("scroll", ScrollTrigger.update);
-  ScrollTrigger.addEventListener("refresh", () => Scroll.resize());
-  Resize.add(() => ScrollTrigger.refresh());
+  Resize.add(refreshScroll);
+  window.addEventListener("load", refreshScroll, { once: true });
 }
 
 class _Scroll extends Lenis {
@@ -94,6 +102,6 @@ handleEditor((isEditor) => {
   } else {
     Scroll.start();
     initScrollTrigger();
-    requestAnimationFrame(() => ScrollTrigger.refresh());
+    requestAnimationFrame(() => refreshScroll());
   }
 });

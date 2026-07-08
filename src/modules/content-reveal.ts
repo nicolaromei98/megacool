@@ -1,5 +1,5 @@
 import gsap, { reduced, ScrollTrigger } from "@lib/gsap";
-import { initScrollTrigger } from "@lib/scroll";
+import { initScrollTrigger, refreshScroll } from "@lib/scroll";
 import { onMount, onDestroy } from "@/modules/_";
 import { toNumber } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
@@ -216,7 +216,7 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     initScrollTrigger();
     ctx?.revert();
     ctx = gsap.context(() => revealGroup(element, dataset), element);
-    requestAnimationFrame(() => ScrollTrigger.refresh());
+    requestAnimationFrame(() => refreshScroll());
   };
 
   const stop = () => {
