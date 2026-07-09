@@ -29,25 +29,29 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
     ctx = gsap.context(() => {
       const tl = gsap.timeline();
 
-      // fromTo (not from) so both endpoints are explicit. A plain .from() infers
-      // its "to" from the element's live transform, so if a ScrollTrigger.refresh
-      // lands after layout shifts (image loads, Taxi soft-nav) it re-bakes a
-      // mid-animation value and the footer freezes at e.g. yPercent -3%.
+      // Explicit fromTo (not from) so the resting value is always a hard 0 /
+      // opacity 1 — GSAP won't record a stale "natural" end value if a refresh
+      // happens mid-scrub.
       if (inner) {
         tl.fromTo(inner, { yPercent: -25 }, { yPercent: 0, ease: "none" });
       }
 
       if (dark) {
-        tl.fromTo(dark, { opacity: 1 }, { opacity: 0.5, ease: "none" }, "<");
+        tl.fromTo(dark, { opacity: 0.5 }, { opacity: 1, ease: "none" }, "<");
       }
 
+      // end: "bottom bottom" — the footer's bottom reaching the viewport bottom
+      // IS reachable at the page's max scroll, so progress always hits 1 and the
+      // transform lands on 0. "clamp(top top)" relied on clamping to max-scroll,
+      // which drifts out of reach when the page height changes after measuring
+      // (content-reveal clearing props, images loading, Lenis resize) and left
+      // the footer stuck at a negative yPercent.
+      // invalidateOnRefresh recomputes the tween on every ScrollTrigger.refresh.
       ScrollTrigger.create({
         trigger: element,
         start: "clamp(top bottom)",
-        end: "clamp(top top)",
+        end: "bottom bottom",
         scrub: true,
-        // Re-read the fromTo endpoints on every refresh so late layout changes
-        // recompute cleanly instead of leaving the scrub stuck partway.
         invalidateOnRefresh: true,
         animation: tl,
       });
