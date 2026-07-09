@@ -1,28 +1,22 @@
 import gsap, { reduced, ScrollTrigger } from "@lib/gsap";
 import { initScrollTrigger } from "@lib/scroll";
 import { onMount, onDestroy } from "@/modules/_";
-import { toNumber } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
 
 /**
- * Scroll-scrubbed footer reveal (replaces data-footer-parallax).
+ * Scroll-scrubbed footer parallax (replaces the standalone data-footer-parallax script).
  *
- * data-module="footer-parallax" on the wrapper (overflow:hidden).
+ * data-module="footer-parallax" on the wrapper.
  * Children: [data-footer-parallax-inner] slides up from yPercent -25,
- * [data-footer-parallax-dark] fades out from opacity 0.5.
- *
- * Optional: data-parallax="-25", data-dark="0.5", data-debug (ST markers)
+ * [data-footer-parallax-dark] fades in from opacity 0.5.
  */
-export default function (element: HTMLElement, dataset: DOMStringMap) {
+export default function (element: HTMLElement, _dataset: DOMStringMap) {
   const inner = element.querySelector<HTMLElement>(
     "[data-footer-parallax-inner]"
   );
   const dark = element.querySelector<HTMLElement>("[data-footer-parallax-dark]");
 
   if (!inner && !dark) return;
-
-  const shift = toNumber(dataset.parallax, -25);
-  const darkFrom = toNumber(dataset.dark, 0.5);
 
   let ctx: gsap.Context | null = null;
   let isEditor = false;
@@ -39,16 +33,15 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
           start: "clamp(top bottom)",
           end: "clamp(top top)",
           scrub: true,
-          markers: element.hasAttribute("data-debug"),
         },
       });
 
       if (inner) {
-        tl.from(inner, { yPercent: shift, ease: "none" });
+        tl.from(inner, { yPercent: -25, ease: "none" });
       }
 
       if (dark) {
-        tl.from(dark, { opacity: darkFrom, ease: "none" }, "<");
+        tl.from(dark, { opacity: 0.5, ease: "none" }, "<");
       }
     }, element);
 
