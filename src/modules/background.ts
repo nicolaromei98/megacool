@@ -35,6 +35,7 @@ import CustomShaderMaterial from "three-custom-shader-material/vanilla";
 import { onMount, onDestroy } from "@/modules/_";
 import { Raf, Resize } from "@lib/subs";
 import gsap from "@lib/gsap";
+import { toNumber } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
 
 import vertexShader from "@/gl/shards/vertex.glsl";
@@ -193,8 +194,8 @@ function setup(element: HTMLElement, dataset: DOMStringMap) {
     width,
     height,
     pixelRatio,
-    gradientStart: parseFloat(dataset.gradientStart ?? "0.35"),
-    gradientDarken: parseFloat(dataset.gradientDarken ?? "0.55"),
+    gradientStart: toNumber(dataset.gradientStart, 0.35),
+    gradientDarken: toNumber(dataset.gradientDarken, 0.55),
   });
 
   /** -- <mouse> */

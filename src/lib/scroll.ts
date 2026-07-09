@@ -12,9 +12,10 @@ const SCROLL_CONFIG = {
   lerp: 0.1,
   smoothWheel: true,
   touchMultiplier: 2,
-  // Keep Lenis's limit in sync with content-height changes (image loads,
-  // SplitText re-splits, reveal animations) so the page never gets stuck
-  // short of the real bottom.
+  // Lenis's autoResize covers viewport/wrapper changes, but it does NOT
+  // reliably catch content-height growth when scrolling the window (e.g. lazy
+  // images loading below the fold). initScrollTrigger() calls Scroll.resize()
+  // on body-height changes to keep `limit` in sync — see the note there.
   autoResize: true,
 };
 
@@ -32,17 +33,20 @@ export function initScrollTrigger() {
   Scroll.on("scroll", ScrollTrigger.update);
   Resize.add(() => ScrollTrigger.refresh());
 
-  // Refresh when the *content height* changes, not just the viewport. On long,
-  // image-heavy pages (e.g. /technology) figures load below the fold after the
-  // initial refresh, pushing later triggers (like the footer scrub) down. The
-  // window "resize" event never fires for that, so cached start/end positions
-  // go stale and the animation looks frozen. A debounced body ResizeObserver
-  // plus load/fonts hooks keep ScrollTrigger's measurements in sync.
+  // Keep the scroll measurements in sync with *content-height* changes, not
+  // just the viewport. On long, image-heavy pages (e.g. /technology) figures
+  // load below the fold after the initial refresh, growing the page. The window
+  // "resize" event never fires for that, so two things go stale: Lenis's scroll
+  // `limit` (clamping the user short of the real bottom — the page feels
+  // "stuck") and ScrollTrigger's cached start/end. A body ResizeObserver plus
+  // load/fonts hooks fix both — Scroll.resize() updates Lenis, then
+  // ScrollTrigger.refresh() re-measures.
   let refreshTimer: ReturnType<typeof setTimeout> | null = null;
   const scheduleRefresh = () => {
     if (refreshTimer) clearTimeout(refreshTimer);
     refreshTimer = setTimeout(() => {
       refreshTimer = null;
+      Scroll.resize();
       ScrollTrigger.refresh();
     }, 150);
   };
@@ -58,6 +62,10 @@ export function initScrollTrigger() {
       const height = document.body.offsetHeight;
       if (height !== lastHeight) {
         lastHeight = height;
+        // Update Lenis's limit immediately so the scroll wall tracks the
+        // content while actively scrolling; the heavier ScrollTrigger.refresh
+        // stays debounced.
+        Scroll.resize();
         scheduleRefresh();
       }
     });
