@@ -11,7 +11,7 @@ const ANIMATED_CLASS = "tr-animated";
 const READY_CLASS = "tr-ready";
 const REFLOW_DEBOUNCE_MS = 150;
 const DEFAULT_TARGET =
-  ".h-h1, .h-h2, .h-h3, .paragraph, h1, h2, h3, h4, p";
+  ".h-h1, .h-h2, .h-h3, .h-h4, .h-h5, .h-h6, .paragraph, h1, h2, h3, h4, h5, h6, p";
 
 type RevealConfig = {
   stagger: number;
@@ -34,6 +34,12 @@ const getTargets = (wrapper: HTMLElement, dataset: DOMStringMap) => {
   if (found.length) return found;
 
   if (wrapper.matches("[data-text-reveal]") || wrapper.matches(selector)) {
+    return [wrapper];
+  }
+
+  // Leaf mode: data-module on the text node itself — animate it even when it
+  // isn't covered by DEFAULT_TARGET (e.g. h5 on the partnership accordion).
+  if (wrapper.dataset.module === "text-reveal") {
     return [wrapper];
   }
 
@@ -318,8 +324,18 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     ease: dataset.ease || "expo.out",
   };
 
+  // Reveal the wrapper only after the instances have applied their hidden
+  // state (CSS keeps it hidden until now). This prevents the flash of
+  // fully-visible text before the JS bundle runs and splits it.
+  const reveal = () => element.classList.add(READY_CLASS);
+
   const targets = getTargets(element, dataset);
-  if (!targets.length) return;
+  if (!targets.length) {
+    // Empty or misconfigured wrapper — still reveal so anti-FOUC CSS doesn't
+    // hide content until the 4s failsafe.
+    reveal();
+    return;
+  }
 
   const instances = targets.map((target) => {
     const d = target.dataset;
@@ -339,11 +355,6 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     };
     return createReveal(target, config);
   });
-
-  // Reveal the wrapper only after the instances have applied their hidden
-  // state (CSS keeps it hidden until now). This prevents the flash of
-  // fully-visible text before the JS bundle runs and splits it.
-  const reveal = () => element.classList.add(READY_CLASS);
 
   handleEditor((editor) => {
     instances.forEach((instance) => instance.setEditor(editor));
