@@ -99,7 +99,14 @@ const setHiddenState = (slots: Slot[], groupDistance: string) => {
 const revealGroup = (groupEl: HTMLElement, dataset: DOMStringMap) => {
   const groupStaggerSec = toNumber(dataset.stagger, 100) / 1000;
   const groupDistance = dataset.distance || "2em";
-  const triggerStart = dataset.start || "top 80%";
+
+  // clamp() keeps the start reachable for groups near the bottom of the
+  // page (e.g. the footer) — without it the trigger position can sit beyond
+  // the max scroll, onEnter never fires, and the content stays hidden.
+  const rawStart = dataset.start || "top 80%";
+  const triggerStart = rawStart.includes("clamp")
+    ? rawStart
+    : `clamp(${rawStart})`;
 
   if (reduced) {
     resetVisible(groupEl);
