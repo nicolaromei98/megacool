@@ -55,6 +55,22 @@
   will-change: transform;
 }
 
+/* content-reveal — staggered group reveal (see content-reveal.ts) */
+
+/* Anti-FOUC: same pattern as text-reveal. Hidden from first paint until the
+   module has applied the hidden child state and added `.cr-ready`. The failsafe
+   forces content visible after 4s if JS never runs. */
+[data-module="content-reveal"]:not(.cr-ready) {
+  visibility: hidden;
+  animation: cr-reveal-failsafe 0s linear 4s forwards;
+}
+
+@keyframes cr-reveal-failsafe {
+  to {
+    visibility: visible;
+  }
+}
+
 /* numbers-unmask — scroll clip reveal for solution metrics */
 [data-module="numbers-unmask"] [data-unmask-item] {
   overflow: hidden;

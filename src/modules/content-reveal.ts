@@ -5,8 +5,32 @@ import { toNumber } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
 
 const NESTED_SELECTOR = "[data-reveal-nested], [data-reveal-group-nested]";
+const READY_CLASS = "cr-ready";
 const ANIM_DURATION = 0.8;
 const ANIM_EASE = "power4.inOut";
+
+/**
+ * Convert a ScrollTrigger-style start ("top 80%", "top bottom", "top center")
+ * into the viewport ratio (0–1) at which the reveal should begin, so we can
+ * detect groups that are already at/past that point on page load.
+ */
+const parseStartRatio = (start: string): number => {
+  const cleaned = start.replace(/clamp\(|\)/g, "").trim();
+  const token = cleaned.split(/\s+/)[1] ?? "80%";
+  if (token.endsWith("%")) {
+    const n = parseFloat(token);
+    return Number.isFinite(n) ? n / 100 : 0.8;
+  }
+  if (token === "bottom") return 1;
+  if (token === "center") return 0.5;
+  if (token === "top") return 0;
+  const n = parseFloat(token);
+  return Number.isFinite(n) ? n : 0.8;
+};
+
+/** True when the element's top is already at/above the reveal start on load. */
+const isAtOrPastStart = (el: HTMLElement, ratio: number) =>
+  el.getBoundingClientRect().top <= window.innerHeight * ratio;
 
 type ItemSlot = { type: "item"; el: HTMLElement };
 type NestedSlot = {
@@ -107,28 +131,47 @@ const revealGroup = (groupEl: HTMLElement, dataset: DOMStringMap) => {
   const triggerStart = rawStart.includes("clamp")
     ? rawStart
     : `clamp(${rawStart})`;
+  const startRatio = parseStartRatio(rawStart);
 
   if (reduced) {
     resetVisible(groupEl);
     return;
   }
 
+  // Play immediately for groups already in view on load; otherwise defer to a
+  // ScrollTrigger so they animate when scrolled into view. A `played` guard
+  // makes sure a group never reveals twice.
+  const playOnLoadOrScroll = (play: () => void) => {
+    if (isAtOrPastStart(groupEl, startRatio)) {
+      play();
+    } else {
+      ScrollTrigger.create({
+        trigger: groupEl,
+        start: triggerStart,
+        once: true,
+        onEnter: play,
+      });
+    }
+  };
+
   const directChildren = getElementChildren(groupEl);
 
   if (!directChildren.length) {
     gsap.set(groupEl, { y: groupDistance, autoAlpha: 0 });
-    ScrollTrigger.create({
-      trigger: groupEl,
-      start: triggerStart,
-      once: true,
-      onEnter: () =>
-        gsap.to(groupEl, {
-          y: 0,
-          autoAlpha: 1,
-          duration: ANIM_DURATION,
-          ease: ANIM_EASE,
-          onComplete: () => gsap.set(groupEl, { clearProps: "all" }),
-        }),
+
+    let played = false;
+    playOnLoadOrScroll(() => {
+      if (played) return;
+      played = true;
+      gsap.to(groupEl, {
+        y: 0,
+        autoAlpha: 1,
+        duration: ANIM_DURATION,
+        ease: ANIM_EASE,
+        onComplete: () => {
+          gsap.set(groupEl, { clearProps: "all" });
+        },
+      });
     });
     return;
   }
@@ -136,67 +179,70 @@ const revealGroup = (groupEl: HTMLElement, dataset: DOMStringMap) => {
   const slots = buildSlots(groupEl);
   setHiddenState(slots, groupDistance);
 
-  ScrollTrigger.create({
-    trigger: groupEl,
-    start: triggerStart,
-    once: true,
-    onEnter: () => {
-      const tl = gsap.timeline();
+  let played = false;
+  playOnLoadOrScroll(() => {
+    if (played) return;
+    played = true;
 
-      slots.forEach((slot, slotIndex) => {
-        const slotTime = slotIndex * groupStaggerSec;
+    const tl = gsap.timeline();
 
-        if (slot.type === "item") {
-          tl.to(
-            slot.el,
-            {
-              y: 0,
-              autoAlpha: 1,
-              duration: ANIM_DURATION,
-              ease: ANIM_EASE,
-              onComplete: () => gsap.set(slot.el, { clearProps: "all" }),
+    slots.forEach((slot, slotIndex) => {
+      const slotTime = slotIndex * groupStaggerSec;
+
+      if (slot.type === "item") {
+        tl.to(
+          slot.el,
+          {
+            y: 0,
+            autoAlpha: 1,
+            duration: ANIM_DURATION,
+            ease: ANIM_EASE,
+            onComplete: () => {
+              gsap.set(slot.el, { clearProps: "all" });
             },
-            slotTime
-          );
-          return;
-        }
+          },
+          slotTime
+        );
+        return;
+      }
 
-        if (slot.includeParent) {
-          tl.to(
-            slot.parentEl,
-            {
-              y: 0,
-              autoAlpha: 1,
-              duration: ANIM_DURATION,
-              ease: ANIM_EASE,
-              onComplete: () =>
-                gsap.set(slot.parentEl, { clearProps: "all" }),
+      if (slot.includeParent) {
+        tl.to(
+          slot.parentEl,
+          {
+            y: 0,
+            autoAlpha: 1,
+            duration: ANIM_DURATION,
+            ease: ANIM_EASE,
+            onComplete: () => {
+              gsap.set(slot.parentEl, { clearProps: "all" });
             },
-            slotTime
-          );
-        }
+          },
+          slotTime
+        );
+      }
 
-        const nestedMs = parseFloat(slot.nestedEl.getAttribute("data-stagger") ?? "");
-        const nestedStaggerSec = Number.isFinite(nestedMs)
-          ? nestedMs / 1000
-          : groupStaggerSec;
+      const nestedMs = parseFloat(slot.nestedEl.getAttribute("data-stagger") ?? "");
+      const nestedStaggerSec = Number.isFinite(nestedMs)
+        ? nestedMs / 1000
+        : groupStaggerSec;
 
-        slot.nestedChildren.forEach((nestedChild, nestedIndex) => {
-          tl.to(
-            nestedChild,
-            {
-              y: 0,
-              autoAlpha: 1,
-              duration: ANIM_DURATION,
-              ease: ANIM_EASE,
-              onComplete: () =>
-                gsap.set(nestedChild, { clearProps: "all" }),
+      slot.nestedChildren.forEach((nestedChild, nestedIndex) => {
+        tl.to(
+          nestedChild,
+          {
+            y: 0,
+            autoAlpha: 1,
+            duration: ANIM_DURATION,
+            ease: ANIM_EASE,
+            onComplete: () => {
+              gsap.set(nestedChild, { clearProps: "all" });
             },
-            slotTime + nestedIndex * nestedStaggerSec
-          );
-        });
+          },
+          slotTime + nestedIndex * nestedStaggerSec
+        );
       });
-    },
+    });
   });
 };
 
@@ -213,20 +259,32 @@ const revealGroup = (groupEl: HTMLElement, dataset: DOMStringMap) => {
 export default function (element: HTMLElement, dataset: DOMStringMap) {
   let ctx: gsap.Context | null = null;
   let isEditor = false;
+  let active = false;
+
+  // Reveal the wrapper only after the hidden state has been applied (CSS keeps
+  // it hidden until now) — prevents the flash of fully-visible content before
+  // the JS bundle runs.
+  const reveal = () => element.classList.add(READY_CLASS);
 
   const start = () => {
     if (isEditor || reduced) {
       resetVisible(element);
+      reveal();
       return;
     }
+
+    if (active) return;
+    active = true;
 
     initScrollTrigger();
     ctx?.revert();
     ctx = gsap.context(() => revealGroup(element, dataset), element);
+    reveal();
     requestAnimationFrame(() => ScrollTrigger.refresh());
   };
 
   const stop = () => {
+    active = false;
     ctx?.revert();
     ctx = null;
     resetVisible(element);
