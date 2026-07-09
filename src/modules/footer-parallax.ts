@@ -38,7 +38,7 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
       }
 
       if (dark) {
-        tl.fromTo(dark, { opacity: 0.5 }, { opacity: 1, ease: "none" }, "<");
+        tl.fromTo(dark, { opacity: 1 }, { opacity: 0.5, ease: "none" }, "<");
       }
 
       ScrollTrigger.create({
