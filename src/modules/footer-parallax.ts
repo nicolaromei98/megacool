@@ -2,16 +2,11 @@ import gsap from "@lib/gsap";
 import { Scroll } from "@lib/scroll";
 import { Resize } from "@lib/subs";
 import { onMount, onDestroy } from "@/modules/_";
-import { clamp, map, toNumber } from "@utils/math";
+import { clientRect } from "@utils/client-rect";
+import { clamp, map } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
 
-/**
- * Footer reveal parallax.
- *
- * data-module="footer-parallax" on wrapper (overflow:hidden).
- * data-footer-parallax-inner, data-footer-parallax-dark.
- * Optional: data-parallax="-25" (yPercent shift), data-dark="0.5"
- */
+/** data-module="footer-parallax" on wrapper (overflow:hidden). data-footer-parallax-inner, data-footer-parallax-dark. */
 export default function (element: HTMLElement, dataset: DOMStringMap) {
   const inner = element.querySelector<HTMLElement>(
     "[data-footer-parallax-inner]"
@@ -20,43 +15,50 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
 
   if (!inner && !dark) return;
 
-  const shift = toNumber(dataset.parallax, -25);
-  const darkFrom = toNumber(dataset.dark, 0.5);
+  const shift = parseFloat(dataset.parallax ?? "-25");
+  const darkFrom = parseFloat(dataset.dark ?? "0.5");
 
   let started = false;
   let isEditor = false;
+
+  const bounds = { start: 0, end: 1 };
   let unsubScroll: (() => void) | null = null;
   let unsubResize: (() => void) | null = null;
   let lastProgress = -1;
 
-  const getProgress = () => {
-    const rect = element.getBoundingClientRect();
-    const wh = Resize.height;
-    const h = Math.max(rect.height, 1);
-
-    // 0 → footer top enters viewport; 1 → footer bottom reaches viewport bottom
-    return clamp(0, 1, map(rect.top, wh, wh - h, 0, 1));
+  const measure = () => {
+    const rect = clientRect(element);
+    bounds.start = rect.top - Resize.height;
+    bounds.end = rect.top;
+    lastProgress = -1;
   };
 
   const render = () => {
-    const p = getProgress();
+    // Like the original ScrollTrigger `clamp(top top)`: the end must be a
+    // reachable scroll position. A footer at the end of the page can never
+    // bring its top to the viewport top, so without clamping to the max
+    // scroll the progress never hits 1 and the inner stays shifted up
+    // mid-reveal ("stuck" footer). Clamp at render time so late layout
+    // changes (images, reveals) are also covered via Lenis's live limit.
+    const end = Math.min(bounds.end, Scroll.limit);
+    const start = Math.min(bounds.start, end - 1);
+
+    const p = clamp(0, 1, map(Scroll.scroll, start, end, 0, 1));
     if (p === lastProgress) return;
     lastProgress = p;
-
-    if (inner) gsap.set(inner, { yPercent: shift * (1 - p), force3D: true });
+    if (inner) gsap.set(inner, { yPercent: shift * (1 - p) });
     if (dark) gsap.set(dark, { opacity: darkFrom * (1 - p) });
   };
 
   const start = () => {
     if (started) return;
     started = true;
-    lastProgress = -1;
+    measure();
     render();
     unsubScroll = Scroll.add(render);
     unsubResize = Resize.add(() => {
-      lastProgress = -1;
+      measure();
       render();
-      Scroll.resize();
     });
   };
 
