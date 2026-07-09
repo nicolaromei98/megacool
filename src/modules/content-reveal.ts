@@ -8,6 +8,7 @@ const NESTED_SELECTOR = "[data-reveal-nested], [data-reveal-group-nested]";
 const READY_CLASS = "cr-ready";
 const ANIM_DURATION = 0.8;
 const ANIM_EASE = "punch";
+const DEFAULT_STAGGER_MS = 60;
 
 /**
  * Convert a ScrollTrigger-style start ("top 80%", "top bottom", "top center")
@@ -121,7 +122,7 @@ const setHiddenState = (slots: Slot[], groupDistance: string) => {
 };
 
 const revealGroup = (groupEl: HTMLElement, dataset: DOMStringMap) => {
-  const groupStaggerSec = toNumber(dataset.stagger, 60) / 1000;
+  const groupStaggerSec = toNumber(dataset.stagger, DEFAULT_STAGGER_MS) / 1000;
   const groupDistance = dataset.distance || "2em";
 
   // clamp() keeps the start reachable for groups near the bottom of the
