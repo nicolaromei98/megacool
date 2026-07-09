@@ -27,14 +27,7 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
     initScrollTrigger();
 
     ctx = gsap.context(() => {
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: element,
-          start: "clamp(top bottom)",
-          end: "clamp(top top)",
-          scrub: true,
-        },
-      });
+      const tl = gsap.timeline();
 
       if (inner) {
         tl.from(inner, { yPercent: -25, ease: "none" });
@@ -43,6 +36,19 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
       if (dark) {
         tl.from(dark, { opacity: 0.5, ease: "none" }, "<");
       }
+
+      // Use the ScrollTrigger.create API directly (instead of the timeline
+      // `scrollTrigger` shorthand) — the shorthand needs the plugin registered
+      // on GSAP's property system, which isn't reliable in this bundle and
+      // throws "Invalid property scrollTrigger". Attaching via `animation`
+      // uses the same path as the other modules.
+      ScrollTrigger.create({
+        trigger: element,
+        start: "clamp(top bottom)",
+        end: "clamp(top top)",
+        scrub: true,
+        animation: tl,
+      });
     }, element);
 
     requestAnimationFrame(() => ScrollTrigger.refresh());
