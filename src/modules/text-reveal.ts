@@ -13,6 +13,13 @@ const REFLOW_DEBOUNCE_MS = 150;
 const DEFAULT_TARGET =
   ".h-h1, .h-h2, .h-h3, .h-h4, .h-h5, .h-h6, .paragraph, h1, h2, h3, h4, h5, h6, p";
 
+// Resolves once the display fonts have loaded. Used to re-split blocks that
+// were split with a fallback font so their line breaks match the final font.
+const fontsReady: Promise<void> =
+  typeof document !== "undefined" && document.fonts?.ready
+    ? document.fonts.ready.then(() => undefined)
+    : Promise.resolve();
+
 type RevealConfig = {
   stagger: number;
   duration: number;
@@ -37,8 +44,6 @@ const getTargets = (wrapper: HTMLElement, dataset: DOMStringMap) => {
     return [wrapper];
   }
 
-  // Leaf mode: data-module on the text node itself — animate it even when it
-  // isn't covered by DEFAULT_TARGET (e.g. h5 on the partnership accordion).
   if (wrapper.dataset.module === "text-reveal") {
     return [wrapper];
   }
@@ -58,7 +63,6 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
   let hasPlayed = false;
   let prepared = false;
   let playing = false;
-  let isInView = false;
   let isRevealed = false;
   let resizeObserver: ResizeObserver | null = null;
   let unsubResize: (() => void) | null = null;
@@ -69,9 +73,9 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
   const splitConfig = {
     type: "lines" as const,
     linesClass: LINE_CLASS,
-    autoSplit: true,
+    autoSplit: false,
     deepSlice: true,
-    onSplit: (self: SplitText) => handleSplit(self),
+    onSplit: (self: SplitText) => applyState(self),
   };
 
   const setVisuallyHidden = (node: HTMLElement) => {
@@ -114,7 +118,10 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     });
   };
 
-  const handleSplit = (self: SplitText) => {
+  // Apply the correct static state to freshly-created lines. NEVER animates
+  // here — animation is driven explicitly by play(). This is called on the
+  // initial split and on every reflow re-split, so it must be idempotent.
+  const applyState = (self: SplitText) => {
     applyLineWraps(self.lines);
 
     if (isEditor || reduced) {
@@ -122,34 +129,11 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
       return;
     }
 
-    if (config.once && hasPlayed) {
+    // Already shown (revealed once, or currently mid-reveal): keep visible so a
+    // reflow re-split can't drop it back to the hidden offset and flash.
+    if ((config.once && hasPlayed) || isRevealed || playing) {
       gsap.set(self.lines, { yPercent: 0 });
       return;
-    }
-
-    if (isRevealed) {
-      gsap.set(self.lines, { yPercent: 0 });
-      return;
-    }
-
-    if (isInView) {
-      playing = true;
-      return gsap.fromTo(
-        self.lines,
-        { yPercent: config.y },
-        {
-          yPercent: 0,
-          duration: config.duration,
-          delay: config.delay,
-          stagger: config.stagger,
-          ease: config.ease,
-          onComplete: () => {
-            playing = false;
-            isRevealed = true;
-            if (config.once) hasPlayed = true;
-          },
-        }
-      );
     }
 
     gsap.set(self.lines, { yPercent: config.y });
@@ -167,19 +151,22 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     unsubResize = null;
   };
 
-  const reflowSplit = () => {
+  const reflowSplit = (force = false) => {
     if (!split || isEditor || reduced || !animatedText || !split.isSplit) return;
 
     const width = element.clientWidth;
     const fontSize = getComputedStyle(element).fontSize;
-    if (width === lastWidth && fontSize === lastFontSize) return;
+    if (!force && width === lastWidth && fontSize === lastFontSize) return;
 
     lastWidth = width;
     lastFontSize = fontSize;
 
+    // revert() momentarily restores raw text — hide so it can't flash on screen.
+    animatedText.style.visibility = "hidden";
     split.revert();
     animatedText.innerHTML = sourceHTML;
     split.split(splitConfig);
+    animatedText.style.visibility = "";
   };
 
   const scheduleReflow = () => {
@@ -201,7 +188,6 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     }
 
     unsubResize = Resize.add(scheduleReflow);
-    document.fonts?.ready.then(scheduleReflow);
   };
 
   const clearSplit = (restoreText = true) => {
@@ -216,7 +202,6 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     hasPlayed = false;
     prepared = false;
     playing = false;
-    isInView = false;
     isRevealed = false;
     lastWidth = -1;
     lastFontSize = "";
@@ -253,17 +238,31 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
   const play = () => {
     if (isEditor || reduced) return;
     if (config.once && hasPlayed) return;
-    if (playing) return;
-    if (!ensureSplit()) return;
+    if (playing || isRevealed) return;
+    if (!ensureSplit() || !split?.lines.length) return;
 
-    isInView = true;
-    split!.split(splitConfig);
+    playing = true;
+    gsap.fromTo(
+      split.lines,
+      { yPercent: config.y },
+      {
+        yPercent: 0,
+        duration: config.duration,
+        delay: config.delay,
+        stagger: config.stagger,
+        ease: config.ease,
+        onComplete: () => {
+          playing = false;
+          isRevealed = true;
+          if (config.once) hasPlayed = true;
+        },
+      }
+    );
   };
 
   const reset = () => {
     if (config.once || !split?.isSplit) return;
 
-    isInView = false;
     isRevealed = false;
     playing = false;
     gsap.killTweensOf(split.lines);
@@ -300,9 +299,11 @@ const createReveal = (element: HTMLElement, config: RevealConfig) => {
     setEditor(editor: boolean) {
       isEditor = editor;
       if (editor) stop();
-      else start();
     },
     prepareHidden,
+    reflowAfterFonts() {
+      reflowSplit(true);
+    },
     start,
     stop,
   };
@@ -324,15 +325,10 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     ease: dataset.ease || "expo.out",
   };
 
-  // Reveal the wrapper only after the instances have applied their hidden
-  // state (CSS keeps it hidden until now). This prevents the flash of
-  // fully-visible text before the JS bundle runs and splits it.
   const reveal = () => element.classList.add(READY_CLASS);
 
   const targets = getTargets(element, dataset);
   if (!targets.length) {
-    // Empty or misconfigured wrapper — still reveal so anti-FOUC CSS doesn't
-    // hide content until the 4s failsafe.
     reveal();
     return;
   }
@@ -356,14 +352,39 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     return createReveal(target, config);
   });
 
-  handleEditor((editor) => {
-    instances.forEach((instance) => instance.setEditor(editor));
+  let isEditor = false;
+  let booted = false;
+
+  const boot = () => {
+    if (booted || isEditor || reduced) return;
+    booted = true;
+
+    // If fonts are already loaded, the initial split used the real font — line
+    // breaks are correct and a fonts-ready re-split would be pure waste (and a
+    // needless revert of every block). Only reflow when fonts were still
+    // loading at split time and could have changed line wrapping.
+    const fontsWereLoading = document.fonts?.status === "loading";
+
+    instances.forEach((instance) => instance.start());
     reveal();
+
+    if (fontsWereLoading) {
+      fontsReady.then(() => {
+        instances.forEach((instance) => instance.reflowAfterFonts());
+      });
+    }
+  };
+
+  handleEditor((editor) => {
+    isEditor = editor;
+    instances.forEach((instance) => instance.setEditor(editor));
+    if (editor) reveal();
+    else boot();
   });
 
   onMount(() => {
-    instances.forEach((instance) => instance.start());
-    reveal();
+    if (!isEditor && !reduced) boot();
+    else reveal();
   });
 
   onDestroy(() => {
