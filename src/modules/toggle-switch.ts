@@ -1,5 +1,4 @@
-import { onMount, onDestroy } from "@/modules/_";
-import { handleEditor } from "@webflow/detect-editor";
+import { onMount } from "@/modules/_";
 
 const BTN_ATTR = "data-toggle-btn";
 const ACTIVE_ATTR = "data-toggle-active";
@@ -10,6 +9,8 @@ const EXCLUDED_VALUE = "contact";
  * Child buttons use [data-toggle-btn]; mark the default with [data-toggle-active].
  * Buttons with data-toggle-btn="contact" are excluded from the sliding indicator.
  *
+ * The indicator is placed once on the button linking to the current page (or the
+ * [data-toggle-active] default) and does not move on hover/interaction.
  * Sets CSS custom properties --toggle-count and --toggle-active on the wrapper.
  */
 export default function (element: HTMLElement, _dataset: DOMStringMap) {
@@ -24,8 +25,37 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
   const isExcluded = (btn: HTMLElement) =>
     btn.getAttribute(BTN_ATTR) === EXCLUDED_VALUE;
 
+  const normalizePath = (path: string) =>
+    path.replace(/\/+$/, "").toLowerCase() || "/";
+
+  const getHref = (btn: HTMLElement) => {
+    const anchor =
+      (btn instanceof HTMLAnchorElement ? btn : null) ??
+      btn.closest("a") ??
+      btn.querySelector("a");
+    return anchor?.getAttribute("href") ?? null;
+  };
+
+  // The button whose link points at the current page starts active, so the
+  // sliding indicator is already placed there on load.
+  const getCurrentPageIndex = () => {
+    const current = normalizePath(window.location.pathname);
+    return buttons.findIndex((btn) => {
+      if (isExcluded(btn)) return false;
+      const href = getHref(btn);
+      if (!href) return false;
+      try {
+        return normalizePath(new URL(href, window.location.origin).pathname) === current;
+      } catch {
+        return false;
+      }
+    });
+  };
+
   const getInitialIndex = () => {
-    let index = buttons.findIndex(
+    let index = getCurrentPageIndex();
+    if (index >= 0) return index;
+    index = buttons.findIndex(
       (btn) => btn.hasAttribute(ACTIVE_ATTR) && !isExcluded(btn)
     );
     if (index < 0) index = buttons.findIndex((btn) => !isExcluded(btn));
@@ -35,79 +65,14 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
   const initialIndex = getInitialIndex();
   if (initialIndex < 0) return;
 
-  let isEditor = false;
-  let activeIndex = initialIndex;
-  let bound = false;
-
   const setActive = (index: number) => {
-    activeIndex = index;
     element.style.setProperty("--toggle-active", String(index));
     buttons.forEach((btn, i) => {
       const isActive = i === index;
       btn.setAttribute("aria-pressed", isActive ? "true" : "false");
       btn.toggleAttribute(ACTIVE_ATTR, isActive);
-      btn.tabIndex = isActive ? 0 : -1;
     });
   };
 
-  const onHover = (event: Event) => {
-    if (isEditor) return;
-    const btn = event.currentTarget as HTMLElement;
-    const index = buttons.indexOf(btn);
-    if (isExcluded(btn)) return;
-    if (index !== activeIndex) setActive(index);
-  };
-
-  const onKeydown = (event: KeyboardEvent) => {
-    if (isEditor) return;
-    const dir =
-      event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-    if (!dir) return;
-    event.preventDefault();
-
-    let next = activeIndex;
-    do {
-      next = (next + dir + buttons.length) % buttons.length;
-    } while (isExcluded(buttons[next]) && next !== activeIndex);
-
-    setActive(next);
-    buttons[next].focus();
-  };
-
-  const bind = () => {
-    if (bound || isEditor) return;
-    bound = true;
-
-    buttons.forEach((btn) => {
-      btn.addEventListener("mouseenter", onHover);
-      btn.addEventListener("click", onHover);
-      btn.addEventListener("keydown", onKeydown);
-    });
-
-    setActive(activeIndex);
-  };
-
-  const unbind = () => {
-    if (!bound) return;
-    bound = false;
-
-    buttons.forEach((btn) => {
-      btn.removeEventListener("mouseenter", onHover);
-      btn.removeEventListener("click", onHover);
-      btn.removeEventListener("keydown", onKeydown);
-    });
-  };
-
-  handleEditor((editor) => {
-    isEditor = editor;
-    if (editor) unbind();
-    else bind();
-  });
-
-  onMount(() => {
-    if (isEditor) setActive(initialIndex);
-    else bind();
-  });
-
-  onDestroy(() => unbind());
+  onMount(() => setActive(initialIndex));
 }
