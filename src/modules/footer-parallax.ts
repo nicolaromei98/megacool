@@ -34,12 +34,7 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
   };
 
   const render = () => {
-    // Like the original ScrollTrigger `clamp(top top)`: the end must be a
-    // reachable scroll position. A footer at the end of the page can never
-    // bring its top to the viewport top, so without clamping to the max
-    // scroll the progress never hits 1 and the inner stays shifted up
-    // mid-reveal ("stuck" footer). Clamp at render time so late layout
-    // changes (images, reveals) are also covered via Lenis's live limit.
+
     const end = Math.min(bounds.end, Scroll.limit);
     const start = Math.min(bounds.start, end - 1);
 

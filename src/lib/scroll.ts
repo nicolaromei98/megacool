@@ -12,35 +12,24 @@ const SCROLL_CONFIG = {
   lerp: 0.1,
   smoothWheel: true,
   touchMultiplier: 2,
-  // autoResize: true,
+  // Keep Lenis's limit in sync with content-height changes (image loads,
+  // SplitText re-splits, reveal animations) so the page never gets stuck
+  // short of the real bottom.
+  autoResize: true,
 };
 
 let scrollTriggerReady = false;
 
-/** Wire ScrollTrigger to Lenis — safe to call multiple times. */
+/**
+ * Wire ScrollTrigger to Lenis — safe to call multiple times.
+ * Lenis scrolls natively (window.scrollY changes), so no scrollerProxy is
+ * needed; a proxy would fight Lenis on every ScrollTrigger.refresh().
+ */
 export function initScrollTrigger() {
   if (scrollTriggerReady) return;
   scrollTriggerReady = true;
 
-  ScrollTrigger.scrollerProxy(document.documentElement, {
-    scrollTop(value) {
-      if (arguments.length) {
-        Scroll.scrollTo(value, { immediate: true });
-      }
-      return Scroll.scroll;
-    },
-    getBoundingClientRect() {
-      return {
-        top: 0,
-        left: 0,
-        width: window.innerWidth,
-        height: window.innerHeight,
-      };
-    },
-  });
-
   Scroll.on("scroll", ScrollTrigger.update);
-  ScrollTrigger.addEventListener("refresh", () => Scroll.resize());
   Resize.add(() => ScrollTrigger.refresh());
 }
 
