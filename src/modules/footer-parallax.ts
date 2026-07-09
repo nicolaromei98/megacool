@@ -1,8 +1,7 @@
 import gsap from "@lib/gsap";
 import { Scroll } from "@lib/scroll";
-import { Resize } from "@lib/subs";
+import { Raf, Resize } from "@lib/subs";
 import { onMount, onDestroy } from "@/modules/_";
-import { clientRect } from "@utils/client-rect";
 import { clamp, map } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
 
@@ -20,23 +19,23 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
 
   let started = false;
   let isEditor = false;
-
-  const bounds = { start: 0, end: 1 };
-  let unsubScroll: (() => void) | null = null;
-  let unsubResize: (() => void) | null = null;
+  let unsubRaf: (() => void) | null = null;
   let lastProgress = -1;
 
-  const measure = () => {
-    const rect = clientRect(element);
-    bounds.start = rect.top - Resize.height;
-    bounds.end = rect.top;
-    lastProgress = -1;
-  };
-
+  // Measured live every frame (cheap: one getBoundingClientRect on one
+  // element). Cached bounds go stale when fonts/images load after mount or
+  // when the viewport changes (e.g. opening DevTools), which left the footer
+  // clipped mid-reveal. The wrapper itself is never transformed — only the
+  // inner is — so reading its rect is stable.
   const render = () => {
+    // Footer top in document space, from the current layout.
+    const top = element.getBoundingClientRect().top + Scroll.scroll;
 
-    const end = Math.min(bounds.end, Scroll.limit);
-    const start = Math.min(bounds.start, end - 1);
+    // Original ScrollTrigger used end: 'clamp(top top)' — the end position
+    // must be reachable. A footer at the bottom of the page can never bring
+    // its top to the viewport top, so cap it at the max scroll position.
+    const end = Math.min(top, Scroll.limit);
+    const start = Math.min(top - Resize.height, end - 1);
 
     const p = clamp(0, 1, map(Scroll.scroll, start, end, 0, 1));
     if (p === lastProgress) return;
@@ -48,22 +47,16 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
   const start = () => {
     if (started) return;
     started = true;
-    measure();
+    lastProgress = -1;
     render();
-    unsubScroll = Scroll.add(render);
-    unsubResize = Resize.add(() => {
-      measure();
-      render();
-    });
+    unsubRaf = Raf.add(render);
   };
 
   const stop = () => {
     if (!started) return;
     started = false;
-    unsubScroll?.();
-    unsubResize?.();
-    unsubScroll = null;
-    unsubResize = null;
+    unsubRaf?.();
+    unsubRaf = null;
     if (inner) gsap.set(inner, { clearProps: "transform" });
     if (dark) gsap.set(dark, { clearProps: "opacity" });
   };
