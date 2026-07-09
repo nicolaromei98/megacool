@@ -15,7 +15,7 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
 
   if (!inner && !dark) return;
 
-  const shift = parseFloat(dataset.parallax ?? "-15");
+  const shift = parseFloat(dataset.parallax ?? "-25");
   const darkFrom = parseFloat(dataset.dark ?? "0.5");
 
   let started = false;
