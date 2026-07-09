@@ -39,6 +39,7 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
           start: "clamp(top bottom)",
           end: "clamp(top top)",
           scrub: true,
+          markers: element.hasAttribute("data-debug"),
         },
       });
 
