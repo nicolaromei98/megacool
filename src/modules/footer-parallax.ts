@@ -21,7 +21,7 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
 
   if (!inner && !dark) return;
 
-  const shift = toNumber(dataset.parallax, -35);
+  const shift = toNumber(dataset.parallax, -25);
   const darkFrom = toNumber(dataset.dark, 0.5);
 
   let ctx: gsap.Context | null = null;
