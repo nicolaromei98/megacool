@@ -12,7 +12,7 @@ const SCROLL_CONFIG = {
   lerp: 0.1,
   smoothWheel: true,
   touchMultiplier: 2,
-  autoResize: true,
+  // autoResize: true,
 };
 
 let scrollTriggerReady = false;
@@ -40,11 +40,8 @@ export function initScrollTrigger() {
   });
 
   Scroll.on("scroll", ScrollTrigger.update);
-
-  Resize.add(() => {
-    Scroll.resize();
-    requestAnimationFrame(() => ScrollTrigger.refresh());
-  });
+  ScrollTrigger.addEventListener("refresh", () => Scroll.resize());
+  Resize.add(() => ScrollTrigger.refresh());
 }
 
 class _Scroll extends Lenis {

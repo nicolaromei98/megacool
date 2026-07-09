@@ -2,12 +2,16 @@ import gsap from "@lib/gsap";
 import { Scroll } from "@lib/scroll";
 import { Resize } from "@lib/subs";
 import { onMount, onDestroy } from "@/modules/_";
-import { clientRect } from "@utils/client-rect";
-import { clamp, map } from "@utils/math";
+import { clamp, map, toNumber } from "@utils/math";
 import { handleEditor } from "@webflow/detect-editor";
 
-/** data-module="footer-parallax" on wrapper (overflow:hidden). data-footer-parallax-inner, data-footer-parallax-dark.
- *  Parallax range spans footer entrance → full scroll-through (not a full viewport if footer is shorter). */
+/**
+ * Footer reveal parallax.
+ *
+ * data-module="footer-parallax" on wrapper (overflow:hidden).
+ * data-footer-parallax-inner, data-footer-parallax-dark.
+ * Optional: data-parallax="-25" (yPercent shift), data-dark="0.5"
+ */
 export default function (element: HTMLElement, dataset: DOMStringMap) {
   const inner = element.querySelector<HTMLElement>(
     "[data-footer-parallax-inner]"
@@ -16,42 +20,43 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
 
   if (!inner && !dark) return;
 
-  const shift = parseFloat(dataset.parallax ?? "-25");
-  const darkFrom = parseFloat(dataset.dark ?? "0.5");
+  const shift = toNumber(dataset.parallax, -25);
+  const darkFrom = toNumber(dataset.dark, 0.5);
 
   let started = false;
   let isEditor = false;
-
-  const bounds = { start: 0, end: 1 };
   let unsubScroll: (() => void) | null = null;
   let unsubResize: (() => void) | null = null;
   let lastProgress = -1;
 
-  const measure = () => {
-    const rect = clientRect(element);
-    bounds.start = rect.top - Resize.height;
-    // Complete parallax within available scroll — short footers can't travel a full viewport
-    bounds.end = bounds.start + Math.min(Resize.height, rect.height);
-    lastProgress = -1;
+  const getProgress = () => {
+    const rect = element.getBoundingClientRect();
+    const wh = Resize.height;
+    const h = Math.max(rect.height, 1);
+
+    // 0 → footer top enters viewport; 1 → footer bottom reaches viewport bottom
+    return clamp(0, 1, map(rect.top, wh, wh - h, 0, 1));
   };
 
   const render = () => {
-    const p = clamp(0, 1, map(Scroll.scroll, bounds.start, bounds.end, 0, 1));
+    const p = getProgress();
     if (p === lastProgress) return;
     lastProgress = p;
-    if (inner) gsap.set(inner, { yPercent: shift * (1 - p) });
+
+    if (inner) gsap.set(inner, { yPercent: shift * (1 - p), force3D: true });
     if (dark) gsap.set(dark, { opacity: darkFrom * (1 - p) });
   };
 
   const start = () => {
     if (started) return;
     started = true;
-    measure();
+    lastProgress = -1;
     render();
     unsubScroll = Scroll.add(render);
     unsubResize = Resize.add(() => {
-      measure();
+      lastProgress = -1;
       render();
+      Scroll.resize();
     });
   };
 
