@@ -28,6 +28,23 @@
 }
 
 /* text-reveal — line clip + slide up on scroll (see text-reveal.ts) */
+
+/* Anti-FOUC: keep the text hidden from first paint until the module has split
+   it and applied the hidden line state, then it adds `.tr-ready` to reveal the
+   wrapper. visibility (not display) preserves layout so nothing shifts.
+   The failsafe animation forces the text visible after 4s even if JS never
+   runs (bundle blocked, error, etc.) so content is never permanently hidden. */
+[data-module="text-reveal"]:not(.tr-ready) {
+  visibility: hidden;
+  animation: tr-reveal-failsafe 0s linear 4s forwards;
+}
+
+@keyframes tr-reveal-failsafe {
+  to {
+    visibility: visible;
+  }
+}
+
 [data-module="text-reveal"] .tr-line-wrap {
   overflow: hidden;
   display: block;

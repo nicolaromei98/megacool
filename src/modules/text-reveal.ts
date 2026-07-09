@@ -8,6 +8,7 @@ import type { Observe } from "@/modules/_/observe";
 const LINE_CLASS = "tr-line";
 const LINE_WRAP_CLASS = "tr-line-wrap";
 const ANIMATED_CLASS = "tr-animated";
+const READY_CLASS = "tr-ready";
 const REFLOW_DEBOUNCE_MS = 150;
 const DEFAULT_TARGET =
   ".h-h1, .h-h2, .h-h3, .paragraph, h1, h2, h3, h4, p";
@@ -339,12 +340,19 @@ export default function (element: HTMLElement, dataset: DOMStringMap) {
     return createReveal(target, config);
   });
 
+  // Reveal the wrapper only after the instances have applied their hidden
+  // state (CSS keeps it hidden until now). This prevents the flash of
+  // fully-visible text before the JS bundle runs and splits it.
+  const reveal = () => element.classList.add(READY_CLASS);
+
   handleEditor((editor) => {
     instances.forEach((instance) => instance.setEditor(editor));
+    reveal();
   });
 
   onMount(() => {
     instances.forEach((instance) => instance.start());
+    reveal();
   });
 
   onDestroy(() => {
