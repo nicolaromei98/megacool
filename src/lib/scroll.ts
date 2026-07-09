@@ -31,6 +31,38 @@ export function initScrollTrigger() {
 
   Scroll.on("scroll", ScrollTrigger.update);
   Resize.add(() => ScrollTrigger.refresh());
+
+  // Refresh when the *content height* changes, not just the viewport. On long,
+  // image-heavy pages (e.g. /technology) figures load below the fold after the
+  // initial refresh, pushing later triggers (like the footer scrub) down. The
+  // window "resize" event never fires for that, so cached start/end positions
+  // go stale and the animation looks frozen. A debounced body ResizeObserver
+  // plus load/fonts hooks keep ScrollTrigger's measurements in sync.
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleRefresh = () => {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null;
+      ScrollTrigger.refresh();
+    }, 150);
+  };
+
+  window.addEventListener("load", scheduleRefresh);
+  document.fonts?.ready.then(scheduleRefresh);
+
+  if (typeof ResizeObserver !== "undefined") {
+    let lastHeight = document.body.offsetHeight;
+    const observer = new ResizeObserver(() => {
+      // Only react to height changes — width changes already come through the
+      // window "resize" path above, and reacting to both risks refresh loops.
+      const height = document.body.offsetHeight;
+      if (height !== lastHeight) {
+        lastHeight = height;
+        scheduleRefresh();
+      }
+    });
+    observer.observe(document.body);
+  }
 }
 
 class _Scroll extends Lenis {

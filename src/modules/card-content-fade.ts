@@ -8,16 +8,6 @@ import { handleEditor } from "@webflow/detect-editor";
 const TRIGGER_SELECTOR = "[data-card-trigger]";
 const CONTENT_SELECTOR = "[data-card-content]";
 
-/**
- * Scroll-scrubbed fade for card copy while a trigger card enters the viewport.
- * Equivalent to ScrollTrigger: start "top bottom", end "top {endVh}vh".
- *
- * data-module="card-content-fade" on the section wrapper.
- * Trigger: [data-card-trigger] (e.g. `.ssp__card-wrap.is--2`).
- * Targets: [data-card-content].
- *
- * Optional: data-end-vh="20", data-fade="0.5", data-trigger=".is--2"
- */
 export default function (element: HTMLElement, dataset: DOMStringMap) {
   const trigger =
     element.querySelector<HTMLElement>(TRIGGER_SELECTOR) ??
