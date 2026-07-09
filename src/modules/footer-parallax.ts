@@ -20,6 +20,7 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
 
   let ctx: gsap.Context | null = null;
   let isEditor = false;
+  let mounted = false;
 
   const start = () => {
     if (ctx || isEditor || reduced) return;
@@ -42,11 +43,23 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
         start: "clamp(top bottom)",
         end: "clamp(top top)",
         scrub: true,
+        // Recompute start/end (and the scrubbed from-values) on every refresh.
+        // The footer sits at the very bottom, so its position depends on the
+        // full height of everything above it — which on long, image-heavy pages
+        // keeps changing after the trigger is first created.
+        invalidateOnRefresh: true,
         animation: tl,
       });
     }, element);
 
-    requestAnimationFrame(() => ScrollTrigger.refresh());
+    // Refresh across a couple of frames so the trigger measures the *settled*
+    // layout. On soft (Taxi) navigation there's no window "load"/fonts.ready to
+    // trigger a late refresh, so a single early refresh would leave the footer
+    // measured against a stale height on the tall /technology page.
+    requestAnimationFrame(() => {
+      ScrollTrigger.refresh();
+      requestAnimationFrame(() => ScrollTrigger.refresh());
+    });
   };
 
   const stop = () => {
@@ -54,13 +67,25 @@ export default function (element: HTMLElement, _dataset: DOMStringMap) {
     ctx = null;
   };
 
+  // NOTE: handleEditor fires its callback synchronously, which happens during
+  // createCycles() — i.e. before the page-in transition settles. Building here
+  // would measure the trigger too early (and onMount would then no-op because
+  // ctx already exists). So we only (re)build from the editor callback once the
+  // module has actually mounted; the initial build is owned by onMount, which
+  // runs after runPageIn() has resolved.
   handleEditor((editor) => {
     isEditor = editor;
     if (editor) stop();
-    else start();
+    else if (mounted) start();
   });
 
-  onMount(() => start());
+  onMount(() => {
+    mounted = true;
+    start();
+  });
 
-  onDestroy(() => stop());
+  onDestroy(() => {
+    mounted = false;
+    stop();
+  });
 }
